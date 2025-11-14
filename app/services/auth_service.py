@@ -41,7 +41,8 @@ class AuthService:
 
     def random_username() -> str:
         """Generate a random username."""
-        username = "".join(random.choices("abcdefghijklmnopqrstuvwxyz0123456789", k=6))
+        username = "".join(random.choices(
+            "abcdefghijklmnopqrstuvwxyz0123456789", k=6))
         return username
 
     async def _social_account_login(
@@ -216,14 +217,16 @@ class AuthService:
     ) -> Dict[str, str]:
         """Generate access token for user"""
         # 获取refresh_token
-        refresh_cookie_token = APIKeyCookie(name="refresh_token", auto_error=False)
+        refresh_cookie_token = APIKeyCookie(
+            name="refresh_token", auto_error=False)
 
         refresh_token = await refresh_cookie_token(request)
 
         if not refresh_token:
             raise HTTPException(
                 status_code=404,
-                detail=get_message("auth.generateAccessToken.refreshTokenNotFound", language),
+                detail=get_message(
+                    "auth.generateAccessToken.refreshTokenNotFound", language),
             )
 
         # 解码refresh_token
@@ -254,7 +257,8 @@ class AuthService:
         if not access_token:
             raise HTTPException(
                 status_code=404,
-                detail=get_message("auth.generateAccessToken.accessTokenNotFound", language),
+                detail=get_message(
+                    "auth.generateAccessToken.accessTokenNotFound", language),
             )
 
         # 设置access token cookie
@@ -283,7 +287,8 @@ class AuthService:
                 "refresh_token": False,
             }
         elif access_token and not refresh_token:
-            access_token_data = self.security_manager.decode_token(access_token)
+            access_token_data = self.security_manager.decode_token(
+                access_token)
             if not access_token_data:
                 return {
                     "access_token": False,
@@ -295,7 +300,8 @@ class AuthService:
                     "refresh_token": False,
                 }
         elif refresh_token and not access_token:
-            refresh_token_data = self.security_manager.decode_token(refresh_token)
+            refresh_token_data = self.security_manager.decode_token(
+                refresh_token)
             if not refresh_token_data:
                 return {
                     "access_token": False,
@@ -330,7 +336,8 @@ class AuthService:
         if not token:
             raise HTTPException(
                 status_code=404,
-                detail=get_message("auth.githubCallback.githubTokenNotFound", language),
+                detail=get_message(
+                    "auth.githubCallback.githubTokenNotFound", language),
             )
         user_info = await self.github.get("https://api.github.com/user", token=token)
         user_info = user_info.json()
@@ -355,7 +362,8 @@ class AuthService:
                 else:
                     raise HTTPException(
                         status_code=404,
-                        detail=get_message("auth.githubCallback.githubEmailNotFound", language),
+                        detail=get_message(
+                            "auth.githubCallback.githubEmailNotFound", language),
                     )
 
         # 创建或更新社交账户
@@ -378,7 +386,10 @@ class AuthService:
         refresh_token = tokens["refresh_token"]
 
         # 跳转到前端
-        redirect_response = RedirectResponse(url=settings.cors.CORS_ALLOWED_ORIGINS[0])
+        allowed_origins = [
+            x.strip() for x in settings.cors.CORS_ALLOWED_ORIGINS.split(',') if x.strip()]
+        redirect_response = RedirectResponse(
+            url=allowed_origins[0] if allowed_origins else settings.cors.CORS_ALLOWED_ORIGINS.strip())
 
         # 设置access token cookie
         redirect_response.set_cookie(
@@ -420,7 +431,8 @@ class AuthService:
         if not tokens:
             raise HTTPException(
                 status_code=404,
-                detail=get_message("auth.googleCallback.googleTokenNotFound", language),
+                detail=get_message(
+                    "auth.googleCallback.googleTokenNotFound", language),
             )
         user_info = await self.google.get(
             "https://www.googleapis.com/userinfo/v2/me", token=tokens
@@ -431,7 +443,8 @@ class AuthService:
         if not email:
             raise HTTPException(
                 status_code=404,
-                detail=get_message("auth.googleCallback.googleEmailNotFound", language),
+                detail=get_message(
+                    "auth.googleCallback.googleEmailNotFound", language),
             )
         username = user_info.get("name").lower()
         if not username:
@@ -452,7 +465,10 @@ class AuthService:
         refresh_token = tokens["refresh_token"]
 
         # 跳转到前端
-        redirect_response = RedirectResponse(url=settings.cors.CORS_ALLOWED_ORIGINS[0])
+        allowed_origins = [
+            x.strip() for x in settings.cors.CORS_ALLOWED_ORIGINS.split(',') if x.strip()]
+        redirect_response = RedirectResponse(
+            url=allowed_origins[0] if allowed_origins else settings.cors.CORS_ALLOWED_ORIGINS.strip())
 
         # 设置access token cookie
         redirect_response.set_cookie(

@@ -107,8 +107,9 @@ async def general_exception_handler(_request: Request, exc: Exception):
 
 
 # CORS中间件
-# 只有一个值时，直接使用字符串转为列表
-allow_origins = [settings.cors.CORS_ALLOWED_ORIGINS.strip()]
+# 处理逗号分隔的源列表
+allow_origins = [x.strip()
+                 for x in settings.cors.CORS_ALLOWED_ORIGINS.split(',') if x.strip()]
 allow_methods = [x.strip()
                  for x in settings.cors.CORS_ALLOW_METHODS.split(',') if x.strip()]
 allow_headers = [x.strip()
