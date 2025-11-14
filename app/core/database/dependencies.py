@@ -10,6 +10,7 @@ from app.core.security import security_manager
 from app.crud.auth_crud import get_auth_crud
 from app.models.auth_model import Token, TokenType
 from app.core.logger import logger_manager
+from app.core.config.settings import settings
 
 
 get_access_token_cookie = APIKeyCookie(
@@ -103,11 +104,13 @@ class Dependencies:
                                 f"No valid token found in database for user_id: {user_id}"
                             )
                     else:
-                        self.logger.warning("No user_id found in decoded token")
+                        self.logger.warning(
+                            "No user_id found in decoded token")
                 else:
                     self.logger.warning("Token decode returned None")
             except Exception as e:
-                self.logger.warning(f"Access token validation failed: {str(e)}")
+                self.logger.warning(
+                    f"Access token validation failed: {str(e)}")
 
         # 如果所有token都无效，抛出未授权错误
         self.logger.warning("All token validation attempts failed")
@@ -121,8 +124,16 @@ class Dependencies:
         response: Response,
     ) -> bool:
         """Cleanup user tokens on logout."""
-        response.delete_cookie("access_token")
+        response.delete_cookie(
+            "access_token",
+            domain=settings.domain.COOKIE_DOMAIN,
+            path="/",
+        )
         self.logger.info("Access token cookie deleted")
-        response.delete_cookie("refresh_token")
+        response.delete_cookie(
+            "refresh_token",
+            domain=settings.domain.COOKIE_DOMAIN,
+            path="/",
+        )
         self.logger.info("Refresh token cookie deleted")
         return True
