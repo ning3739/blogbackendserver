@@ -1,6 +1,5 @@
 import random
-from typing import Dict, Optional
-from urllib.parse import urlparse
+from typing import Dict
 from authlib.integrations.starlette_client import OAuth
 from fastapi.security import APIKeyCookie
 from fastapi.responses import RedirectResponse
@@ -40,34 +39,11 @@ class AuthService:
             client_kwargs={"scope": "openid email profile"},
         )
 
-    @staticmethod
     def random_username() -> str:
         """Generate a random username."""
         username = "".join(random.choices(
             "abcdefghijklmnopqrstuvwxyz0123456789", k=6))
         return username
-
-    @staticmethod
-    def get_cookie_domain() -> Optional[str]:
-        """Extract cookie domain from CORS_ALLOWED_ORIGINS."""
-        try:
-            allowed_origins = [
-                x.strip() for x in settings.cors.CORS_ALLOWED_ORIGINS.split(',') if x.strip()]
-            if allowed_origins:
-                # 从第一个源中提取域名
-                parsed = urlparse(allowed_origins[0])
-                domain = parsed.netloc or parsed.hostname
-                if domain:
-                    # 提取主域名（去掉子域名）
-                    # 例如: api.heyxiaoli.com -> .heyxiaoli.com
-                    parts = domain.split('.')
-                    if len(parts) >= 2:
-                        # 返回主域名，前面加 . 以支持所有子域
-                        return f".{'.'.join(parts[-2:])}"
-                    return domain
-        except Exception:
-            pass
-        return None
 
     async def _social_account_login(
         self,
@@ -196,33 +172,28 @@ class AuthService:
         )
 
         # 设置access token cookie
-        cookie_domain = self.get_cookie_domain()
-        cookie_kwargs = {
-            "key": "access_token",
-            "value": token_data["access_token"],
-            "httponly": True,
-            "secure": True,
-            "samesite": "lax",
-            "path": "/",
-            "max_age": settings.jwt.JWT_ACCESS_TOKEN_EXPIRATION,
-        }
-        if cookie_domain:
-            cookie_kwargs["domain"] = cookie_domain
-        response.set_cookie(**cookie_kwargs)
+        response.set_cookie(
+            key="access_token",
+            value=token_data["access_token"],
+            httponly=True,
+            secure=True,
+            samesite="lax",
+            path="/",
+            domain=settings.domain.COOKIE_DOMAIN,
+            max_age=settings.jwt.JWT_ACCESS_TOKEN_EXPIRATION,
+        )
 
         # 设置refresh token cookie
-        cookie_kwargs = {
-            "key": "refresh_token",
-            "value": token_data["refresh_token"],
-            "httponly": True,
-            "secure": True,
-            "samesite": "lax",
-            "path": "/",
-            "max_age": settings.jwt.JWT_REFRESH_TOKEN_EXPIRATION,
-        }
-        if cookie_domain:
-            cookie_kwargs["domain"] = cookie_domain
-        response.set_cookie(**cookie_kwargs)
+        response.set_cookie(
+            key="refresh_token",
+            value=token_data["refresh_token"],
+            httponly=True,
+            secure=True,
+            samesite="lax",
+            path="/",
+            domain=settings.domain.COOKIE_DOMAIN,
+            max_age=settings.jwt.JWT_REFRESH_TOKEN_EXPIRATION,
+        )
 
         return True
 
@@ -234,11 +205,16 @@ class AuthService:
             await self.auth_crud.account_logout(user_id=user_id)
 
             # 清理用户的cookies
-            cookie_domain = self.get_cookie_domain()
             response.delete_cookie(
-                "access_token", path="/", domain=cookie_domain)
+                "access_token",
+                domain=settings.domain.COOKIE_DOMAIN,
+                path="/",
+            )
             response.delete_cookie(
-                "refresh_token", path="/", domain=cookie_domain)
+                "refresh_token",
+                domain=settings.domain.COOKIE_DOMAIN,
+                path="/",
+            )
             self.logger.info(f"User tokens cleaned up for user_id: {user_id}")
             return True
         except Exception as e:
@@ -298,19 +274,16 @@ class AuthService:
             )
 
         # 设置access token cookie
-        cookie_domain = self.get_cookie_domain()
-        cookie_kwargs = {
-            "key": "access_token",
-            "value": access_token,
-            "httponly": True,
-            "secure": True,
-            "samesite": "lax",
-            "path": "/",
-            "max_age": settings.jwt.JWT_ACCESS_TOKEN_EXPIRATION,
-        }
-        if cookie_domain:
-            cookie_kwargs["domain"] = cookie_domain
-        response.set_cookie(**cookie_kwargs)
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=True,
+            samesite="lax",
+            path="/",
+            domain=settings.domain.COOKIE_DOMAIN,
+            max_age=settings.jwt.JWT_ACCESS_TOKEN_EXPIRATION,
+        )
 
         return {
             "access_token": access_token,
@@ -433,33 +406,28 @@ class AuthService:
             url=allowed_origins[0] if allowed_origins else settings.cors.CORS_ALLOWED_ORIGINS.strip())
 
         # 设置access token cookie
-        cookie_domain = self.get_cookie_domain()
-        cookie_kwargs = {
-            "key": "access_token",
-            "value": access_token,
-            "httponly": True,
-            "secure": True,
-            "samesite": "lax",
-            "path": "/",
-            "max_age": settings.jwt.JWT_ACCESS_TOKEN_EXPIRATION,
-        }
-        if cookie_domain:
-            cookie_kwargs["domain"] = cookie_domain
-        redirect_response.set_cookie(**cookie_kwargs)
+        redirect_response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=True,
+            samesite="lax",
+            path="/",
+            domain=settings.domain.COOKIE_DOMAIN,
+            max_age=settings.jwt.JWT_ACCESS_TOKEN_EXPIRATION,
+        )
 
         # 设置refresh token cookie
-        cookie_kwargs = {
-            "key": "refresh_token",
-            "value": refresh_token,
-            "httponly": True,
-            "secure": True,
-            "samesite": "lax",
-            "path": "/",
-            "max_age": settings.jwt.JWT_REFRESH_TOKEN_EXPIRATION,
-        }
-        if cookie_domain:
-            cookie_kwargs["domain"] = cookie_domain
-        redirect_response.set_cookie(**cookie_kwargs)
+        redirect_response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            secure=True,
+            samesite="lax",
+            path="/",
+            domain=settings.domain.COOKIE_DOMAIN,
+            max_age=settings.jwt.JWT_REFRESH_TOKEN_EXPIRATION,
+        )
 
         return redirect_response
 
@@ -521,33 +489,28 @@ class AuthService:
             url=allowed_origins[0] if allowed_origins else settings.cors.CORS_ALLOWED_ORIGINS.strip())
 
         # 设置access token cookie
-        cookie_domain = self.get_cookie_domain()
-        cookie_kwargs = {
-            "key": "access_token",
-            "value": access_token,
-            "httponly": True,
-            "secure": True,
-            "samesite": "lax",
-            "path": "/",
-            "max_age": settings.jwt.JWT_ACCESS_TOKEN_EXPIRATION,
-        }
-        if cookie_domain:
-            cookie_kwargs["domain"] = cookie_domain
-        redirect_response.set_cookie(**cookie_kwargs)
+        redirect_response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=True,
+            samesite="lax",
+            path="/",
+            domain=settings.domain.COOKIE_DOMAIN,
+            max_age=settings.jwt.JWT_ACCESS_TOKEN_EXPIRATION,
+        )
 
         # 设置refresh token cookie
-        cookie_kwargs = {
-            "key": "refresh_token",
-            "value": refresh_token,
-            "httponly": True,
-            "secure": True,
-            "samesite": "lax",
-            "path": "/",
-            "max_age": settings.jwt.JWT_REFRESH_TOKEN_EXPIRATION,
-        }
-        if cookie_domain:
-            cookie_kwargs["domain"] = cookie_domain
-        redirect_response.set_cookie(**cookie_kwargs)
+        redirect_response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            secure=True,
+            samesite="lax",
+            path="/",
+            domain=settings.domain.COOKIE_DOMAIN,
+            max_age=settings.jwt.JWT_REFRESH_TOKEN_EXPIRATION,
+        )
 
         return redirect_response
 
