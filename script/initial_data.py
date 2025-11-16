@@ -281,7 +281,7 @@ async def check_data_exists() -> bool:
     other_tables = [
         "media",
         "seo",
-        "tax",
+        "taxes",
         "sections",
         "boards",
         "friends",
@@ -410,19 +410,20 @@ async def insert_initial_data():
             skipped_tables.append(f"seo ({count} records)")
 
         # 插入 Tax 数据
-        is_empty, count = check_table_empty("tax", db)
+        is_empty, count = check_table_empty("taxes", db)
         if is_empty and count != -1:
             db.execute(insert(Tax).values(tax_data))
             db.commit()
-            inserted_tables.append("tax")
+            inserted_tables.append("taxes")
             logger.info("✅ Inserted Tax data")
         elif count == -1:
-            logger.warning("⏭️  Table 'tax' does not exist, skipping Tax data")
-            skipped_tables.append("tax (table not found)")
+            logger.warning(
+                "⏭️  Table 'taxes' does not exist, skipping Tax data")
+            skipped_tables.append("taxes (table not found)")
         else:
             logger.info(
-                f"⏭️  Table 'tax' has {count} records, skipping Tax data")
-            skipped_tables.append(f"tax ({count} records)")
+                f"⏭️  Table 'taxes' has {count} records, skipping Tax data")
+            skipped_tables.append(f"taxes ({count} records)")
 
         # 插入 Section 数据
         is_empty, count = check_table_empty("sections", db)

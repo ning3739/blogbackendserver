@@ -402,7 +402,16 @@ celery -A app.core.celery.celery_app worker --loglevel=info
 celery -A app.core.celery.celery_app beat --loglevel=info
 ```
 
-ENV=development uv run celery -A app.core.celery.celery_app worker --beat --loglevel=info
+**使用 uv 运行 Celery（推荐）**
+
+```bash
+# 同时启动 worker 和 beat（定时任务）
+ENV=development uv run python -m celery -A app.core.celery.celery_app worker --beat --loglevel=info
+
+# 或者分别启动
+ENV=development uv run python -m celery -A app.core.celery.celery_app worker --loglevel=info
+ENV=development uv run python -m celery -A app.core.celery.celery_app beat --loglevel=info
+```
 
 ### Celery 配置
 
