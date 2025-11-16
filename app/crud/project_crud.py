@@ -3,7 +3,7 @@ import hashlib
 from slugify import slugify
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any, Tuple
-from fastapi import HTTPException, Depends
+from fastapi import HTTPException, Depends, logger
 from sqlalchemy import exists, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
@@ -45,9 +45,17 @@ class ProjectCrud:
         self.logger = logger_manager.get_logger(__name__)
 
     async def _get_tax(self) -> Optional[int]:
-        statement = select(Tax.id).where(Tax.tax_name == "GST")
+        statement = select(Tax.id).where(
+            Tax.tax_name == "GST",
+            Tax.is_active == True
+        )
         result = await self.db.execute(statement)
-        return result.scalar_one_or_none()
+        tax_id = result.scalar_one_or_none()
+        if tax_id:
+            self.logger.info(f"Found active GST tax with id: {tax_id}")
+        else:
+            self.logger.warning("No active GST tax found in database")
+        return tax_id
 
     async def _get_project_by_id(self, project_id: int) -> Optional[Project]:
         statement = (
@@ -358,10 +366,14 @@ class ProjectCrud:
                     )
                 )
 
+        # 获取tax_id
+        tax_result = await self._get_tax()
+        tax_id = tax_result if tax_result else None
+
         await self.db.execute(
             update(Project_Monetization)
             .where(Project_Monetization.project_id == existing_project.id)
-            .values(price=price)
+            .values(price=price, tax_id=tax_id)
         )
         await self.db.commit()
 
@@ -438,6 +450,14 @@ class ProjectCrud:
             project.project_monetization.tax.tax_rate
             if project.project_monetization.tax
             else 0.0
+        )
+
+        # 调试信息
+        self.logger.debug(
+            f"Project {project.id} tax info: "
+            f"tax_id={project.project_monetization.tax_id if project.project_monetization else None}, "
+            f"tax={project.project_monetization.tax.tax_name if project.project_monetization and project.project_monetization.tax else None}, "
+            f"tax_rate={tax_rate}"
         )
         project_price = (
             project.project_monetization.price if project.project_monetization else 0.0
