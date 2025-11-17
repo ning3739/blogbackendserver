@@ -8,6 +8,7 @@ RUN apt-get update && \
         ca-certificates \
         ffmpeg \
         procps \
+        fontconfig \
         && rm -rf /var/lib/apt/lists/*
 
 # 创建非 root 用户用于运行应用
@@ -38,8 +39,9 @@ RUN chmod +x /server/script/setup-server.sh
 
 # 确保 appuser 可以访问必要的目录和文件
 # 创建 Celery 工作目录并设置权限
-RUN mkdir -p /server/.celery && \
+RUN mkdir -p /server/.celery /var/cache/fontconfig && \
     chown -R appuser:appuser /server/.celery && \
+    chmod -R 777 /var/cache/fontconfig && \
     chmod -R o+rX /server && \
     chmod -R o+w /server/.venv 2>/dev/null || true
 
