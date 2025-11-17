@@ -294,13 +294,37 @@ jobs:
               fi
             fi
 
-            # Stop existing containers gracefully
-            echo "🛑 Stopping existing containers..."
+            # 完全清理旧容器和相关资源
+            echo "🗑️  Cleaning up old containers..."
+            
+            # 1. 停止并删除容器
             sudo docker compose -f "$COMPOSE_FILE" down --timeout 30 || \
               sudo docker-compose -f "$COMPOSE_FILE" down --timeout 30 || true
+            
+            # 2. 强制删除可能残留的容器
+            for container in server nginx; do
+              if sudo docker ps -a --format '{{.Names}}' | grep -q "^${container}$"; then
+                echo "   Removing container: $container"
+                sudo docker rm -f "$container" 2>/dev/null || true
+              fi
+            done
+            
+            # 3. 清理悬空的镜像
+            echo "🧹 Cleaning up dangling images..."
+            sudo docker image prune -f || true
+            
+            # 4. 验证清理结果
+            echo "📊 Verifying cleanup..."
+            REMAINING_CONTAINERS=$(sudo docker ps -a --filter "name=server\|nginx" --format "{{.Names}}" | wc -l)
+            if [ "$REMAINING_CONTAINERS" -gt 0 ]; then
+              echo "⚠️  Warning: Found $REMAINING_CONTAINERS remaining containers"
+              sudo docker ps -a --filter "name=server\|nginx"
+            else
+              echo "✅ All old containers removed"
+            fi
 
-            # Start containers
-            echo "🚀 Starting containers..."
+            # 启动新容器
+            echo "🚀 Starting new containers..."
             if ! sudo docker compose -f "$COMPOSE_FILE" up -d; then
               if ! sudo docker-compose -f "$COMPOSE_FILE" up -d; then
                 echo "❌ Failed to start containers"
@@ -309,28 +333,70 @@ jobs:
               fi
             fi
 
-            # Wait for container to be healthy
-            echo "⏳ Waiting for container to start..."
-            for i in {1..30}; do
-              CONTAINER_STATUS=$(sudo docker inspect --format='{{.State.Status}}' server 2>/dev/null || echo "not_found")
+            # 等待容器启动并变为健康状态
+            echo "⏳ Waiting for containers to be healthy..."
+            for i in {1..60}; do
+              # 检查容器状态
+              SERVER_STATUS=$(sudo docker inspect --format='{{.State.Status}}' server 2>/dev/null || echo "not_found")
+              SERVER_HEALTH=$(sudo docker inspect --format='{{.State.Health.Status}}' server 2>/dev/null || echo "none")
+              NGINX_STATUS=$(sudo docker inspect --format='{{.State.Status}}' nginx 2>/dev/null || echo "not_found")
               
-              if [ "$CONTAINER_STATUS" = "running" ]; then
-                echo "✅ Container is running"
-                
-                # Additional health check - wait for app to be ready
-                echo "⏳ Waiting for application to be ready..."
-                sleep 5
-                
-                if sudo docker exec server test -f /server/.venv/bin/python 2>/dev/null; then
-                  echo "✅ Application is ready"
-                  break
+              # 显示当前状态
+              echo "   [$i/60] Server: $SERVER_STATUS ($SERVER_HEALTH), Nginx: $NGINX_STATUS"
+              
+              # 检查是否都在运行
+              if [ "$SERVER_STATUS" = "running" ] && [ "$NGINX_STATUS" = "running" ]; then
+                # 如果没有健康检查配置，或者健康检查已通过
+                if [ "$SERVER_HEALTH" = "none" ] || [ "$SERVER_HEALTH" = "healthy" ]; then
+                  echo "✅ Containers are running and healthy"
+                  
+                  # 额外验证：确保应用已就绪
+                  echo "⏳ Verifying application readiness..."
+                  sleep 5
+                  
+                  if sudo docker exec server test -f /server/.venv/bin/python 2>/dev/null; then
+                    echo "✅ Application is ready"
+                    
+                    # 显示容器信息
+                    echo ""
+                    echo "📦 Container status:"
+                    sudo docker ps --filter "name=server\|nginx" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+                    
+                    # 显示容器资源使用情况
+                    echo ""
+                    echo "💻 Resource usage:"
+                    sudo docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}" server nginx
+                    
+                    break
+                  fi
                 fi
               fi
               
-              if [ "$i" -eq 30 ]; then
-                echo "❌ Container failed to start properly"
-                echo "Container status: $CONTAINER_STATUS"
+              # 检查容器是否异常退出
+              if [ "$SERVER_STATUS" = "exited" ] || [ "$NGINX_STATUS" = "exited" ]; then
+                echo "❌ Container exited unexpectedly"
+                echo ""
+                echo "Server logs:"
+                sudo docker logs --tail=50 server 2>/dev/null || true
+                echo ""
+                echo "Nginx logs:"
+                sudo docker logs --tail=50 nginx 2>/dev/null || true
+                exit 1
+              fi
+              
+              # 超时检查
+              if [ "$i" -eq 60 ]; then
+                echo "❌ Container failed to start properly after 120 seconds"
+                echo ""
+                echo "Final status:"
+                echo "   Server: $SERVER_STATUS (Health: $SERVER_HEALTH)"
+                echo "   Nginx: $NGINX_STATUS"
+                echo ""
+                echo "Server logs (last 100 lines):"
                 sudo docker logs --tail=100 server 2>/dev/null || true
+                echo ""
+                echo "Nginx logs (last 100 lines):"
+                sudo docker logs --tail=100 nginx 2>/dev/null || true
                 exit 1
               fi
               
