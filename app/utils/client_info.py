@@ -12,12 +12,13 @@ class ClientInfoUtils:
 
     def get_client_ip(self, request: Request) -> Optional[str]:
         """获取客户端真实IP地址"""
+        # 优先检查 Cloudflare 的真实 IP header
         possible_headers = [
-            "X-Real-IP",
-            "X-Forwarded-For",
-            "CF-Connecting-IP",
+            "CF-Connecting-IP",  # Cloudflare 真实客户端IP (最优先)
+            "True-Client-IP",     # Cloudflare Enterprise
+            "X-Forwarded-For",    # 标准代理header,取第一个IP
+            "X-Real-IP",          # Nginx等代理
             "X-Client-IP",
-            "True-Client-IP",
         ]
 
         for header in possible_headers:
@@ -33,12 +34,13 @@ class ClientInfoUtils:
         # 添加调试日志
         self.logger.info(f"收到的请求头😂😂😂😂😂😂😂😂😂😂😂😂😂😂😂😂😂: {headers}")
 
+        # 优先检查 Cloudflare 的真实 IP header
         possible_headers = [
-            "X-Real-IP",
-            "X-Forwarded-For",
-            "CF-Connecting-IP",
+            "CF-Connecting-IP",  # Cloudflare 真实客户端IP (最优先)
+            "True-Client-IP",     # Cloudflare Enterprise
+            "X-Forwarded-For",    # 标准代理header,取第一个IP
+            "X-Real-IP",          # Nginx等代理
             "X-Client-IP",
-            "True-Client-IP",
         ]
 
         for header in possible_headers:
