@@ -54,7 +54,7 @@ secret/.env.*
 
 # Documentation
 docs/
-README.md
+# README.md  # 需要复制到镜像中供 API 使用
 
 # Node modules (如果有前端构建产物)
 node_modules/
