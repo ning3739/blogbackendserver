@@ -1354,7 +1354,7 @@ async def test_create_blog():
 
 - 作者: NING3739
 - 仓库: [https://github.com/NING3739/blogbackendserver](https://github.com/NING3739/blogbackendserver)
-- 问题反馈: ln729500172@gmail.com
+- 问题反馈: [GitHub Issues](https://github.com/NING3739/blogbackendserver/issues)
 
 ## 🙏 致谢
 
