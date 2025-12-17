@@ -49,13 +49,13 @@ class RobustS3Bucket:
             self.logger.error(error_msg)
             raise ValueError(error_msg)
 
-        # boto3配置 - 专注于稳健性
+        # boto3配置 - 针对小内存服务器优化（2GB RAM）
         config = Config(
             region_name=self.region,
-            retries={"max_attempts": 5, "mode": "adaptive"},  # 增加重试次数
-            max_pool_connections=20,  # 减少连接数，提高稳定性
-            connect_timeout=30,  # 连接超时
-            read_timeout=60,  # 读取超时
+            retries={"max_attempts": 5, "mode": "adaptive"},  # 自适应重试
+            max_pool_connections=10,  # 降低连接数，减少内存占用
+            connect_timeout=60,  # 连接超时增加到60秒
+            read_timeout=300,  # 读取超时增加到5分钟，支持大文件
         )
 
         try:
@@ -68,15 +68,15 @@ class RobustS3Bucket:
                 config=config,
             )
 
-            # 线程池执行器
-            self.thread_pool = ThreadPoolExecutor(max_workers=5)  # 减少工作线程
+            # 线程池执行器 - 小内存服务器优化
+            self.thread_pool = ThreadPoolExecutor(max_workers=3)  # 降低工作线程数
             self._shutdown_event = threading.Event()
 
-            # 传输配置（提高吞吐量）
+            # 传输配置 - 针对2GB RAM优化
             self.transfer_config = TransferConfig(
-                multipart_threshold=8 * 1024 * 1024,
-                multipart_chunksize=8 * 1024 * 1024,
-                max_concurrency=10,
+                multipart_threshold=5 * 1024 * 1024,  # 5MB触发分片
+                multipart_chunksize=5 * 1024 * 1024,  # 5MB分片大小
+                max_concurrency=3,  # 降低并发数，减少内存压力
                 use_threads=True,
             )
 

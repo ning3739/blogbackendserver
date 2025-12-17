@@ -98,7 +98,7 @@ class MediaService:
             HTTPException: 当文件验证失败时
         """
         temp_paths: list[str] = []
-        CHUNK_SIZE = 8 * 1024 * 1024
+        CHUNK_SIZE = 1024 * 1024  # 1MB chunks，减少内存占用
 
         try:
             for file in files:
@@ -443,7 +443,7 @@ class MediaService:
                 metadata_list=None,
                 content_types=None,
                 acl=acl_list,  # 传递ACL设置列表
-                max_workers=3,  # 保守策略：降低并发避免资源耗尽
+                max_workers=2,  # 针对2GB RAM服务器优化，降低并发
                 verify=False,  # 关闭逐个 head 校验，提速
             )
 
