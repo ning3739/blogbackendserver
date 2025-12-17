@@ -19,7 +19,7 @@ class RobustS3Bucket:
     固定使用配置中指定的S3存储桶
     """
 
-    def __init__(self):
+    def __init__(self, verify_bucket: bool = True):
         """
         初始化RobustS3Bucket
         从配置中读取AWS凭证和存储桶信息
@@ -82,8 +82,8 @@ class RobustS3Bucket:
 
             self.logger.info(f"RobustS3Bucket初始化成功，区域: {self.region}")
 
-            # 验证连接
-            if not self._verify_bucket_access():
+            # 验证连接（可跳过以减少额外往返）
+            if verify_bucket and (not self._verify_bucket_access()):
                 self.logger.warning("存储桶访问验证失败，但S3Bucket实例已创建")
 
         except NoCredentialsError:
@@ -746,7 +746,7 @@ class RobustS3Bucket:
 
 
 # 使用示例和工厂函数
-def create_s3_bucket() -> RobustS3Bucket:
+def create_s3_bucket(verify_bucket: bool = True) -> RobustS3Bucket:
     """
     创建RobustS3Bucket实例的工厂函数
     从配置中读取AWS_BUCKET_NAME，固定使用配置的存储桶
@@ -754,4 +754,4 @@ def create_s3_bucket() -> RobustS3Bucket:
     Returns:
         RobustS3Bucket: 配置好的RobustS3Bucket实例
     """
-    return RobustS3Bucket()
+    return RobustS3Bucket(verify_bucket=verify_bucket)

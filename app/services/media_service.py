@@ -3,6 +3,7 @@ import tempfile
 import uuid
 from pathlib import Path
 from typing import Dict, Any, Union, List, Tuple, Optional
+import anyio
 from fastapi import Depends, HTTPException, status, UploadFile
 from app.models.media_model import MediaType
 from app.core.config.settings import settings
@@ -121,17 +122,17 @@ class MediaService:
                         detail=f"不允许的文件扩展名: .{ext}",
                     )
 
-                # 创建临时文件并分块写入
+                # 创建临时文件并分块写入（异步写盘，避免阻塞事件循环）
                 with tempfile.NamedTemporaryFile(
                     delete=False, suffix=Path(file.filename).suffix
                 ) as temp_file:
                     temp_paths.append(temp_file.name)
-                    while True:
-                        chunk = await file.read(CHUNK_SIZE)
-                        if not chunk:
-                            break
-                        temp_file.write(chunk)
-                    temp_file.flush()
+                    async with await anyio.open_file(temp_file.name, "wb") as afp:
+                        while True:
+                            chunk = await file.read(CHUNK_SIZE)
+                            if not chunk:
+                                break
+                            await afp.write(chunk)
 
             return temp_paths
 
@@ -312,12 +313,13 @@ class MediaService:
         self.logger.info(f"开始上传文件到S3: {local_file_path} -> {original_s3_key}")
 
         # 上传文件并构建URL（复用S3连接优化性能）
-        with create_s3_bucket() as s3_bucket:
+        with create_s3_bucket(verify_bucket=False) as s3_bucket:
             # 上传文件，传递ACL设置
             upload_success = s3_bucket.upload_files(
                 file_paths=str(local_file_path),
                 s3_keys=original_s3_key,
-                acl=acl_setting  # 根据媒体类型设置ACL
+                acl=acl_setting,  # 根据媒体类型设置ACL
+                verify=False,  # 跳过上传后校验以减少额外往返
             )
 
             if not upload_success:
@@ -432,7 +434,7 @@ class MediaService:
             build_cache.append((lp, mt, original_s3_key))
 
         # 批量并发上传，传递ACL设置
-        with create_s3_bucket() as s3_bucket:
+        with create_s3_bucket(verify_bucket=False) as s3_bucket:
             paths = [str(lp) for (lp, _, __) in build_cache]
             keys = [osk for (_, __, osk) in build_cache]
             results = s3_bucket.upload_files(
@@ -446,7 +448,7 @@ class MediaService:
             )
 
         # 逐文件写库与后续任务调度（使用 s3_bucket.get_file_url 替代硬编码 base_url）
-        with create_s3_bucket() as s3_bucket:
+        with create_s3_bucket(verify_bucket=False) as s3_bucket:
             for i, (lp, mt, original_s3_key) in enumerate(build_cache):
                 ok = (
                     results.get(original_s3_key, False)
@@ -567,7 +569,7 @@ class MediaService:
 
         # 在 service 层处理预签名 URL（使用单个 S3 连接优化性能）
         response_items = []
-        with create_s3_bucket() as s3_bucket:
+        with create_s3_bucket(verify_bucket=False) as s3_bucket:
             for item in items:
                 response_item = item.copy()
 
@@ -668,7 +670,7 @@ class MediaService:
 
             # 准备S3删除的键列表
             s3_keys_to_delete = []
-            with create_s3_bucket() as s3_bucket:
+            with create_s3_bucket(verify_bucket=False) as s3_bucket:
                 for media in media_list:
                     # 提取原始文件的S3键
                     original_key = s3_bucket.extract_s3_key(
@@ -695,7 +697,7 @@ class MediaService:
             # 删除S3中的文件
             s3_delete_results = {}
             if s3_keys_to_delete:
-                with create_s3_bucket() as s3_bucket:
+                with create_s3_bucket(verify_bucket=False) as s3_bucket:
                     s3_delete_results = s3_bucket.delete_files(
                         s3_keys=s3_keys_to_delete,
                         max_workers=2,  # 保守策略：降低删除并发
