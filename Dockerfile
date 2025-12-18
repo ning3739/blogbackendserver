@@ -9,6 +9,7 @@ RUN apt-get update && \
         ffmpeg \
         procps \
         fontconfig \
+        default-mysql-client \
         && rm -rf /var/lib/apt/lists/*
 
 # 创建非 root 用户用于运行应用
