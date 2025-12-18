@@ -272,10 +272,10 @@ class MediaService:
                 f"{settings.files.S3_VIDEO_ORIGINAL_PATH}/{local_file_path.name}"
             )
             thumbnail_s3_key = (
-                f"{settings.files.S3_VIDEO_THUMBNAIL_PATH}/{stem}_thumbnail.webm"
+                f"{settings.files.S3_VIDEO_THUMBNAIL_PATH}/{stem}_thumbnail.mp4"
             )
             watermark_s3_key = (
-                f"{settings.files.S3_VIDEO_WATERMARK_PATH}/{stem}_watermark.webm"
+                f"{settings.files.S3_VIDEO_WATERMARK_PATH}/{stem}_watermark.mp4"
             )
         elif media_type == MediaType.audio:
             original_s3_key = (
@@ -491,8 +491,8 @@ class MediaService:
                         wm_key) if wm_key else None
                 elif mt == MediaType.video:
                     stem = lp.stem
-                    thumb_key = f"{settings.files.S3_VIDEO_THUMBNAIL_PATH}/{stem}_thumbnail.webm"
-                    wm_key = f"{settings.files.S3_VIDEO_WATERMARK_PATH}/{stem}_watermark.webm"
+                    thumb_key = f"{settings.files.S3_VIDEO_THUMBNAIL_PATH}/{stem}_thumbnail.mp4"
+                    wm_key = f"{settings.files.S3_VIDEO_WATERMARK_PATH}/{stem}_watermark.mp4"
                     thumbnail_url = (
                         s3_bucket.get_file_url(
                             thumb_key) if thumb_key else None

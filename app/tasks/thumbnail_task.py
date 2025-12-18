@@ -119,7 +119,7 @@ def generate_video_thumbnail(
             logger.warning(f"跳过非文件: {file_path}")
             continue
 
-        output_file = output_dir / f"{file_path.stem}_thumbnail.webm"
+        output_file = output_dir / f"{file_path.stem}_thumbnail.mp4"
 
         # 构建 ffmpeg 命令
         vf_core = f"scale={width}:{height}:force_original_aspect_ratio=decrease"
@@ -134,7 +134,7 @@ def generate_video_thumbnail(
         command = [
             "ffmpeg",
             "-threads",
-            "1",  # 限制线程数，减少内存占用（2GB RAM服务器）
+            "2",  # H.264 可以用 2 线程
             "-i",
             str(file_path),
             "-t",
@@ -144,27 +144,19 @@ def generate_video_thumbnail(
             "-pix_fmt",
             "yuv420p",
             "-c:v",
-            "libvpx-vp9",  # 视频编码 VP9
-            "-b:v",
-            "0",  # 使用质量模式
+            "libx264",  # H.264 编码，速度快
+            "-preset",
+            "ultrafast",  # 最快编码（缩略图不需要高压缩率）
             "-crf",
-            "40",  # 缩略图用更高CRF值，体积更小
-            "-deadline",
-            "realtime",  # 最快编码速度
-            "-cpu-used",
-            "5",  # 最快设置，减少CPU占用时间
-            "-tile-columns",
-            "0",  # 禁用tile并行，减少内存
-            "-frame-parallel",
-            "0",  # 禁用帧并行，减少内存
-            "-auto-alt-ref",
-            "0",  # 禁用备用参考帧，减少内存
-            "-lag-in-frames",
-            "0",  # 禁用前瞻帧，减少内存占用
+            "28",  # 缩略图质量足够
+            "-profile:v",
+            "baseline",  # 最大兼容性
+            "-movflags",
+            "+faststart",  # 网页播放优化
             "-c:a",
-            "libopus",  # 音频编码 Opus
+            "aac",  # AAC 音频
             "-b:a",
-            "32k",  # 缩略图用更低音频码率
+            "64k",  # 缩略图音频码率
             "-y",  # 覆盖输出
             str(output_file),
         ]
@@ -294,17 +286,17 @@ def generate_video_thumbnail_task(
         # 准备上传到S3的文件路径和S3键
         source_inputs = [Path(p) for p in (local_inputs or [])]
 
-        # 生成缩略视频文件路径（WebM格式）
+        # 生成缩略视频文件路径（MP4格式）
         thumbnail_paths = []
         s3_keys = []
 
         for file_path in source_inputs:
             thumbnail_file = local_output_dir / \
-                f"{file_path.stem}_thumbnail.webm"
+                f"{file_path.stem}_thumbnail.mp4"
             if thumbnail_file.exists():
                 thumbnail_paths.append(str(thumbnail_file))
                 # 生成S3键：使用调用方传入的S3前缀
-                s3_key = f"{output_dir}/{file_path.stem}_thumbnail.webm"
+                s3_key = f"{output_dir}/{file_path.stem}_thumbnail.mp4"
                 s3_keys.append(s3_key)
 
         # 上传缩略视频到S3
@@ -314,7 +306,7 @@ def generate_video_thumbnail_task(
                     file_paths=thumbnail_paths,
                     s3_keys=s3_keys,
                     metadata_list=[],
-                    content_types=["video/webm"] * len(thumbnail_paths),
+                    content_types=["video/mp4"] * len(thumbnail_paths),
                     acl="public-read",
                 )
                 logger.info(f"成功上传 {len(thumbnail_paths)} 个缩略视频到S3")

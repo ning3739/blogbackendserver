@@ -266,8 +266,8 @@ def generate_video_watermark(
             logger.warning(f"跳过非文件: {file_path}")
             continue
 
-        # 转换为 WebM 格式，添加水印
-        output_file = output_dir / f"{file_path.stem}_watermark.webm"
+        # 转换为 MP4 格式，添加水印（H.264 编码速度更快）
+        output_file = output_dir / f"{file_path.stem}_watermark.mp4"
 
         # 动态计算字号与颜色（取反色）、不透明度
         # 采样时间靠近 start_time，默认 0.5s
@@ -430,7 +430,7 @@ def generate_video_watermark(
             "-loglevel",
             "warning",  # 只显示警告和错误
             "-threads",
-            "1",  # 限制线程数，减少内存占用（2GB RAM服务器）
+            "2",  # H.264 可以用 2 线程，仍然省内存
             "-i",
             str(file_path),
             "-filter_complex",
@@ -440,27 +440,23 @@ def generate_video_watermark(
             "-map",
             "0:a?",
             "-c:v",
-            "libvpx-vp9",  # 视频编码 VP9
-            "-b:v",
-            "0",  # 使用质量模式
+            "libx264",  # H.264 编码，速度快 5-10 倍
+            "-preset",
+            "veryfast",  # 快速编码，质量仍然不错
             "-crf",
-            "38",  # 较高CRF值，720p博客用途足够，减少编码时间
-            "-deadline",
-            "realtime",  # 最快编码速度，适合资源受限服务器
-            "-cpu-used",
-            "5",  # 最快设置（0-5），减少CPU占用时间
-            "-tile-columns",
-            "0",  # 禁用tile列，减少内存
-            "-frame-parallel",
-            "0",  # 禁用帧并行，减少内存
-            "-auto-alt-ref",
-            "0",  # 禁用备用参考帧，减少内存
-            "-lag-in-frames",
-            "0",  # 禁用前瞻帧，减少内存占用
+            "23",  # H.264 的 CRF 23 质量很好
+            "-profile:v",
+            "high",  # 高质量 profile
+            "-level",
+            "4.1",  # 兼容性好
+            "-movflags",
+            "+faststart",  # 优化网页播放，元数据前置
+            "-pix_fmt",
+            "yuv420p",  # 最大兼容性
             "-c:a",
-            "libopus",  # 音频编码 Opus
+            "aac",  # AAC 音频编码
             "-b:a",
-            "48k",  # 降低音频码率
+            "128k",  # 音频码率
             "-y",  # 覆盖输出
             str(output_file),
         ]
@@ -624,18 +620,18 @@ def generate_video_watermark_task(
 
         for file_path in source_inputs:
             watermark_file = local_output_dir / \
-                f"{file_path.stem}_watermark.webm"
+                f"{file_path.stem}_watermark.mp4"
             if watermark_file.exists():
                 watermark_paths.append(str(watermark_file))
                 # 生成S3键：使用调用方传入的S3前缀
-                s3_key = f"{output_dir}/{file_path.stem}_watermark.webm"
+                s3_key = f"{output_dir}/{file_path.stem}_watermark.mp4"
                 s3_keys.append(s3_key)
 
         # 上传水印视频到S3
         if watermark_paths:
             with create_s3_bucket() as s3_bucket:
-                # 所有水印视频都是WebM格式
-                content_types = ["video/webm"] * len(watermark_paths)
+                # 所有水印视频都是MP4格式
+                content_types = ["video/mp4"] * len(watermark_paths)
 
                 s3_bucket.upload_files(
                     file_paths=watermark_paths,
