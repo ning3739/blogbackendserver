@@ -1,126 +1,135 @@
-# Backend Server
-
 <div align="center">
-
-[![Python](https://img.shields.io/badge/Python-3.13+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/) [![FastAPI](https://img.shields.io/badge/FastAPI-0.116+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/) [![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge&logo=opensourceinitiative&logoColor=white)](LICENSE)
-
-A modern blog backend management system based on FastAPI, featuring asynchronous architecture with support for multi-language, payments, media management, and more.
-
-[Features](#-features) • [Tech Stack](#-tech-stack) • [Quick Start](#-quick-start) • [Project Structure](#-project-structure) • [API Documentation](#-api-documentation) • [Deployment](#-deployment)
-
+  <h1><strong>Blog Backend Server</strong></h1>
+  <p>
+    <a href="https://www.python.org/">
+      <img src="https://img.shields.io/badge/Python-3.13+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
+    </a>
+    <a href="https://fastapi.tiangolo.com/">
+      <img src="https://img.shields.io/badge/FastAPI-0.116+-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
+    </a>
+    <a href="LICENSE">
+      <img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge&logo=opensourceinitiative&logoColor=white" alt="License" />
+    </a>
+  </p>
+  <p><strong>Production-ready backend for modern blogs, built with FastAPI. Features async architecture, multi-language, payment, AI content, and advanced media management.</strong></p>
 </div>
 
----
+## Table of Contents
 
-## 📋 Table of Contents
-
-- [Features](#-features)
-- [Tech Stack](#-tech-stack)
-- [System Architecture](#-system-architecture)
-- [Quick Start](#-quick-start)
-- [Project Structure](#-project-structure)
-- [Configuration](#-configuration)
-- [API Documentation](#-api-documentation)
-- [Database Migration](#-database-migration)
-- [Async Tasks](#-async-tasks)
-- [Deployment Guide](#-deployment-guide)
-- [Development Guide](#-development-guide)
-- [Testing](#-testing)
-- [FAQ](#-faq)
-- [Contributing](#-contributing)
-- [License](#-license)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [System Architecture](#system-architecture)
+- [Quick Start](#quick-start)
+- [Project Structure](#project-structure)
+- [Configuration](#configuration)
+- [API Documentation](#api-documentation)
+- [Database Migration](#database-migration)
+- [Async Tasks](#async-tasks)
+- [Deployment Guide](#deployment-guide)
+- [Development Guide](#development-guide)
+- [Testing](#testing)
+- [FAQ](#faq)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Features
 
-### Core Functionality
+### Authentication & Security
 
-- **Complete Authentication System**
+- Email verification code-based login
+- OAuth 2.0 social login (Google, GitHub)
+- JWT dual-token authentication (access & refresh)
+- Argon2 password hashing
+- CSRF protection middleware
+- Configurable rate limiting
 
-  - Email verification code login/registration
-  - OAuth social login (Google, GitHub, etc.)
-  - JWT dual-token mechanism (access token + refresh token)
-  - Argon2 password encryption
-  - CSRF protection
+### Content Management
 
-- **Blog Management System**
+- Multi-language support (Chinese/English)
+- Rich text editor integration
+- Draft/publish workflow
+- Hierarchical tags & categories
+- SEO metadata optimization
+- Cover image management
+- Content versioning & history
 
-  - Multi-language support (Chinese/English)
-  - Rich text content editing
-  - Draft/publish status management
-  - Tag categorization system
-  - SEO optimization support
-  - Article cover management
+### Media Management
 
-- **Media Management**
+- AWS S3 cloud storage
+- Automatic image watermarking (customizable)
+- Dynamic thumbnail generation
+- Intelligent file type categorization
+- User-scoped media library
+- Batch upload with progress tracking
 
-  - AWS S3 file storage
-  - Automatic image watermarking
-  - Automatic thumbnail generation
-  - File categorization
-  - User media library
+### Payment Integration
 
-- **Payment System**
+- Stripe payment gateway
+- Automated PDF invoice generation
+- Transactional email delivery
+- Payment history & analytics
+- Secure webhook event processing
 
-  - Stripe payment integration
-  - Automatic PDF invoice generation
-  - Email invoice delivery
-  - Payment record management
+### AI-Powered Features
 
-- **AI Features**
+- Automated content translation (Alibaba Cloud Qwen)
+- High-quality text-to-speech (Azure Cognitive Services)
+- Intelligent content summarization
+- Multi-language AI processing
 
-  - Automatic content translation (Alibaba Cloud Qwen)
-  - Text-to-speech (Azure TTS)
-  - Intelligent content summarization
+### Analytics & Monitoring
 
-- **Data Analytics**
+- Real-time access statistics
+- User behavior analytics
+- Client device detection
+- Performance monitoring & logging
 
-  - Access statistics
-  - User behavior analysis
-  - Client information collection
+### Additional Features
 
-- 🔧 **Other Features**
-  - Message board system
-  - Friend link management
-  - Project showcase
-  - Subscriber management
-  - Email notification system
-  - Rate limiting protection
+- Interactive message board
+- Friend link directory
+- Project portfolio showcase
+- Newsletter subscription management
+- Automated email notifications
+- Structured logging with rotation
 
 ## Tech Stack
 
-### Backend Framework
+### Core Framework
 
-- **[FastAPI](https://fastapi.tiangolo.com/)** - High-performance async web framework
-- **[SQLModel](https://sqlmodel.tiangolo.com/)** - Python ORM for SQL databases
-- **[Pydantic](https://pydantic-docs.helpmanual.io/)** - Data validation and settings management
-- **[Alembic](https://alembic.sqlalchemy.org/)** - Database migration tool
+- **[FastAPI](https://fastapi.tiangolo.com/)** - High-performance async web framework with automatic API documentation
+- **[SQLModel](https://sqlmodel.tiangolo.com/)** - SQL ORM with seamless Pydantic integration
+- **[Pydantic](https://docs.pydantic.dev/)** - Data validation and settings management using Python type hints
+- **[Alembic](https://alembic.sqlalchemy.org/)** - Database migration management tool
 
-### Database & Cache
+### Database & Caching
 
-- **MySQL** - Primary database
-- **Redis** - Cache and message queue
-- **aiomysql** - Async MySQL driver
+- **MySQL 8.0+** - Primary relational database with full UTF-8 support
+- **Redis 7.0+** - In-memory data store for caching and message brokering
+- **aiomysql** - Asynchronous MySQL database driver
 
-### Async Tasks
+### Task Queue
 
-- **[Celery](https://docs.celeryproject.org/)** - Distributed task queue
-- **Redis** - Celery message broker
+- **[Celery](https://docs.celeryproject.org/)** - Distributed asynchronous task queue
+- **Celery Beat** - Periodic task scheduler for recurring jobs
 
-### Third-Party Services
+### Cloud Services & Third-Party APIs
 
-- **AWS S3** - Object storage service
-- **Stripe** - Payment processing
-- **Alibaba Cloud Qwen** - AI content translation
-- **Azure Cognitive Services** - Speech synthesis
-- **Email Service** - Notification and invoice delivery
+- **AWS S3** - Scalable object storage for media files
+- **Stripe** - Secure payment processing and subscription management
+- **Alibaba Cloud Qwen** - Advanced AI translation and NLP services
+- **Azure Cognitive Services** - Neural text-to-speech synthesis
+- **SMTP** - Reliable email delivery infrastructure
 
-### Development Tools
+### DevOps & Development Tools
 
-- **Docker & Docker Compose** - Containerized deployment
-- **Nginx** - Reverse proxy and load balancing
-- **Pytest** - Testing framework
-- **Ruff** - Python code linter
-- **Loguru** - Logging management
+- **Docker & Docker Compose** - Container orchestration and deployment
+- **Nginx** - High-performance reverse proxy and load balancer
+- **GitHub Actions** - Automated CI/CD pipeline
+- **Pytest** - Comprehensive testing framework
+- **Ruff** - Lightning-fast Python linter and code formatter
+- **Loguru** - Elegant and powerful logging solution
+- **uv** - Next-generation Python package and project manager
 
 ## System Architecture
 
@@ -151,22 +160,24 @@ A modern blog backend management system based on FastAPI, featuring asynchronous
 
 ### Prerequisites
 
-- Python 3.13+
-- [uv](https://docs.astral.sh/uv/) - Fast Python package manager
-- MySQL 8.0+
-- Redis 7.0+
-- Docker & Docker Compose (optional)
+Ensure the following dependencies are installed on your system:
+
+- **Python 3.13+**
+- **[uv](https://docs.astral.sh/uv/)** - Modern Python package manager
+- **MySQL 8.0+** - Relational database
+- **Redis 7.0+** - In-memory data store
+- **Docker & Docker Compose** (optional, recommended for production deployment)
 
 ### Local Development Setup
 
-1. **Clone the repository**
+#### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/NING3739/blogbackendserver.git
 cd blogbackendserver
 ```
 
-2. **Install uv (if not already installed)**
+#### 2. Install uv Package Manager
 
 ```bash
 # macOS/Linux
@@ -176,47 +187,44 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-3. **Install dependencies**
+#### 3. Install Dependencies
 
 ```bash
-# Use uv to sync dependencies (automatically creates virtual environment)
+# Sync dependencies (automatically creates virtual environment)
 uv sync
 ```
 
-4. **Configure environment variables**
+#### 4. Configure Environment Variables
 
-Create environment configuration files in the `secret/` directory:
+Create environment configuration files:
 
 ```bash
 mkdir -p secret
-touch secret/.env.development  # Development environment
-touch secret/.env.production   # Production environment
+touch secret/.env.development
+touch secret/.env.production
 ```
 
-Refer to the [Configuration](#-configuration) section to fill in the necessary environment variables.
+Refer to the [Configuration](#-configuration) section for detailed environment variable setup.
 
-5. **Initialize database**
+#### 5. Initialize Database
 
 ```bash
-# Create database (execute in MySQL)
-mysql -u root -p
-CREATE DATABASE blog CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-EXIT;
+# Create database with UTF-8 support
+mysql -u root -p -e "CREATE DATABASE blog CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
-# Run database migrations (see "Database Migration" section for details)
+# Apply database migrations
 uv run alembic upgrade head
 
-# Initialize data (optional)
+# Seed initial data (optional)
 uv run python script/initial_data.py
 ```
 
-6. **Generate SSL certificates (development environment)**
+#### 6. Generate SSL Certificates (Development)
 
 ```bash
-# Install mkcert (if not already installed)
-# macOS
-brew install mkcert
-# Or visit https://github.com/Filole/mkcert cert for other platform installation methods
+# Install mkcert
+brew install mkcert  # macOS
+# For other platforms: https://github.com/FiloSottile/mkcert
 
 # Install local CA
 mkcert -install
@@ -225,43 +233,46 @@ mkcert -install
 mkdir -p certs
 cd certs
 mkcert 127.0.0.1 localhost
-# This will generate 127.0.0.1+1-key.pem and 127.0.0.1+1.pem
-# Rename to the required filenames
 mv 127.0.0.1+1-key.pem localhost-key.pem
 mv 127.0.0.1+1.pem localhost.pem
 cd ..
 ```
 
-7. **Start development server**
+#### 7. Start Development Server
 
 ```bash
-# Method 1: Start with python -m (recommended for development debugging)
+# Start FastAPI application
 export ENV=development
 uv run python -m app.main
 
-# Method 2: Start directly with uvicorn (more flexible)
+# Or use uvicorn directly
 ENV=development uv run uvicorn app.main:app \
   --host 127.0.0.1 \
   --port 8000 \
   --reload \
   --ssl-keyfile certs/localhost-key.pem \
   --ssl-certfile certs/localhost.pem
-
-# Start Celery Worker (in a new terminal window)
-ENV=development uv run celery -A app.core.celery:celery_app worker --loglevel=info
-
-# Start Celery Beat (scheduled task scheduler, in a new terminal window)
-ENV=development uv run celery -A app.core.celery:celery_app beat --loglevel=info
-
-# Or start both Worker and Beat together
-ENV=development uv run celery -A app.core.celery:celery_app worker --beat --loglevel=info
 ```
 
-8. **Access the application**
+#### 8. Start Celery Workers (New Terminal)
 
-- API Documentation: https://127.0.0.1:8000/docs
-- ReDoc Documentation: https://127.0.0.1:8000/redoc
-- Application Homepage: https://127.0.0.1:8000
+```bash
+# Start worker and beat scheduler together
+ENV=development uv run celery -A app.core.celery:celery_app worker --beat --loglevel=info
+
+# Or start separately:
+# Worker only
+ENV=development uv run celery -A app.core.celery:celery_app worker --loglevel=info
+
+# Beat scheduler only
+ENV=development uv run celery -A app.core.celery:celery_app beat --loglevel=info
+```
+
+#### 9. Access the Application
+
+- **API Documentation (Swagger)**: https://127.0.0.1:8000/docs
+- **API Documentation (ReDoc)**: https://127.0.0.1:8000/redoc
+- **Application Root**: https://127.0.0.1:8000
 
 ## Project Structure
 
@@ -346,50 +357,34 @@ Configure the following environment variables in `secret/.env.development` or `s
 #### Complete Configuration Example
 
 ```env
-# ========================================
 # Application Configuration
-# ========================================
 APP_NAME=YourAppName
 
-# ========================================
 # Database Configuration
-# ========================================
 # Format: mysql+aiomysql://username:password@host:port/database
 DATABASE_URL=mysql+aiomysql://your_user:your_password@localhost:3306/your_database
 
-# ========================================
 # JWT Configuration
-# ========================================
 JWT_SECRET_KEY=your_random_secret_key_here_at_least_32_characters
 
-# ========================================
 # Email Configuration
-# ========================================
 EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
 EMAIL_HOST_USER=your_email@gmail.com
 EMAIL_HOST_PASSWORD=your_app_password
 
-# ========================================
 # CORS Configuration
-# ========================================
 CORS_ALLOWED_ORIGINS=https://yourdomain.com,https://api.yourdomain.com
 
-# ========================================
 # CSRF Configuration
-# ========================================
 CSRF_SECRET_KEY=your_csrf_secret_key
 
-# ========================================
 # Celery and Redis Configuration
-# ========================================
 CELERY_BROKER_URL=redis://localhost:6379/0
 CELERY_RESULT_BACKEND=redis://localhost:6379/0
 REDIS_CONNECTION_URL=redis://localhost:6379/0
 
-# ========================================
 # OAuth Configuration
-# ========================================
 # GitHub OAuth
 GITHUB_CLIENT_ID=your_github_client_id
 GITHUB_CLIENT_SECRET=your_github_client_secret
@@ -400,23 +395,17 @@ GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 GOOGLE_REDIRECT_URI=https://api.yourdomain.com/api/v1/auth/google-callback
 
-# ========================================
 # Logging Configuration
-# ========================================
 LOG_TO_FILE=True
 LOG_FILE_PATH=logs/app.log
 
-# ========================================
 # AWS S3 Configuration
-# ========================================
 AWS_ACCESS_KEY_ID=your_aws_access_key_id
 AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
 AWS_BUCKET_NAME=your_bucket_name
 AWS_REGION=ap-southeast-1
 
-# ========================================
 # AI Service Configuration
-# ========================================
 # Alibaba Cloud Qwen
 QWEN_API_KEY=your_qwen_api_key
 QWEN_API_MAX_RETRIES=3
@@ -425,18 +414,14 @@ QWEN_API_MAX_RETRIES=3
 AZURE_SPEECH_KEY=your_azure_speech_key
 AZURE_SPEECH_REGION=eastus
 
-# ========================================
 # Stripe Payment Configuration
-# ========================================
 STRIPE_SECRET_KEY=sk_live_your_stripe_secret_key
 STRIPE_PUBLIC_KEY=pk_live_your_stripe_public_key
 STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret
 SUCCESS_URL=https://yourdomain.com/payment/success
 CANCEL_URL=https://yourdomain.com/payment/cancel
 
-# ========================================
 # Domain and Company Information
-# ========================================
 DOMAIN_URL=https://api.yourdomain.com
 COMPANY_NAME=YourCompanyName
 COMPANY_PHONE=+1234567890
@@ -445,7 +430,7 @@ COMPANY_EMAIL=contact@yourdomain.com
 
 #### Configuration Notes
 
-**Important Notes**:
+Important Notes:
 
 - Never commit real production configurations to version control
 - Production configurations should be stored in GitHub Secrets (see deployment guide)
@@ -460,25 +445,25 @@ After starting the service, visit the following URLs to view API documentation:
 - **Swagger UI**: https://127.0.0.1:8000/docs
 - **ReDoc**: https://127.0.0.1:8000/redoc
 
-### API Modules
+### API Modules Overview
 
-| Module       | Route Prefix          | Description                      |
-| ------------ | --------------------- | -------------------------------- |
-| Auth         | `/api/v1/auth`        | Login, registration, token refresh |
-| Users        | `/api/v1/users`       | User management                  |
-| Blogs        | `/api/v1/blogs`       | Blog post CRUD                   |
-| Sections     | `/api/v1/sections`    | Blog category management         |
-| Tags         | `/api/v1/tags`        | Tag management                   |
-| Media        | `/api/v1/media`       | File upload and management       |
-| SEO          | `/api/v1/seo`         | SEO configuration                |
-| Boards       | `/api/v1/boards`      | Message management               |
-| Friends      | `/api/v1/friends`     | Friend link management           |
-| Payments     | `/api/v1/payments`    | Payment processing               |
-| Projects     | `/api/v1/projects`    | Project showcase                 |
-| Analytics    | `/api/v1/analytics`   | Data analytics                   |
-| Subscribers  | `/api/v1/subscribers` | Subscriber management            |
+| Module      | Route Prefix          | Description                        |
+| ----------- | --------------------- | ---------------------------------- |
+| Auth        | `/api/v1/auth`        | Login, registration, token refresh |
+| Users       | `/api/v1/users`       | User management                    |
+| Blogs       | `/api/v1/blogs`       | Blog post CRUD                     |
+| Sections    | `/api/v1/sections`    | Blog category management           |
+| Tags        | `/api/v1/tags`        | Tag management                     |
+| Media       | `/api/v1/media`       | File upload and management         |
+| SEO         | `/api/v1/seo`         | SEO configuration                  |
+| Boards      | `/api/v1/boards`      | Message management                 |
+| Friends     | `/api/v1/friends`     | Friend link management             |
+| Payments    | `/api/v1/payments`    | Payment processing                 |
+| Projects    | `/api/v1/projects`    | Project showcase                   |
+| Analytics   | `/api/v1/analytics`   | Data analytics                     |
+| Subscribers | `/api/v1/subscribers` | Subscriber management              |
 
-### Authentication
+### Authentication Mechanism
 
 The API uses JWT tokens via **HTTP-Only Cookies** for authentication. Tokens are automatically managed without manual Authorization header setup.
 
@@ -509,9 +494,7 @@ curl -X 'DELETE' \
   -H 'accept: application/json'
 ```
 
-**Note**:
-
-- Browsers automatically manage Cookies, no manual operation required
+Note: Browsers automatically manage Cookies, no manual operation required.
 
 ## Database Migration
 
@@ -551,22 +534,22 @@ uv run alembic history
 3. Test both upgrade and downgrade migrations
 4. Backup database before executing production migrations
 
-## ⚡️ Async Tasks
+## Async Tasks
 
 ### Available Tasks
 
-| Task                             | Description                | Schedule                    |
-| -------------------------------- | -------------------------- | --------------------------- |
-| `backup_database_task`           | Database backup            | Daily at 2:00 AM            |
-| `generate_content_audio_task`    | Generate content audio     | On-demand                   |
-| `large_content_translation_task` | AI content translation     | On-demand                   |
-| `greeting_email_task`            | Send welcome email         | Triggered on user registration |
-| `send_invoice_email_task`        | Send invoice email         | Triggered after payment     |
-| `watermark_task`                 | Add image watermark        | Triggered on image upload   |
-| `thumbnail_task`                 | Generate thumbnail         | Triggered on image upload   |
-| `delete_user_media_task`         | Delete user media          | Triggered on user deletion  |
-| `client_info_task`               | Record client information  | Triggered on API request    |
-| `summary_content_task`           | Generate content summary   | On-demand                   |
+| Task                             | Description               | Schedule                       |
+| -------------------------------- | ------------------------- | ------------------------------ |
+| `backup_database_task`           | Database backup           | Daily at 2:00 AM               |
+| `generate_content_audio_task`    | Generate content audio    | On-demand                      |
+| `large_content_translation_task` | AI content translation    | On-demand                      |
+| `greeting_email_task`            | Send welcome email        | Triggered on user registration |
+| `send_invoice_email_task`        | Send invoice email        | Triggered after payment        |
+| `watermark_task`                 | Add image watermark       | Triggered on image upload      |
+| `thumbnail_task`                 | Generate thumbnail        | Triggered on image upload      |
+| `delete_user_media_task`         | Delete user media         | Triggered on user deletion     |
+| `client_info_task`               | Record client information | Triggered on API request       |
+| `summary_content_task`           | Generate content summary  | On-demand                      |
 
 ### Starting Celery Worker
 
@@ -597,34 +580,25 @@ Visit http://localhost:5555 to view the task monitoring dashboard.
 
 This project uses a **fully automated** CI/CD workflow that requires no manual server operations. When you push code to the `main` branch, GitHub Actions automatically:
 
-1. ✅ Builds Docker image
-2. ✅ Pushes to Docker Hub (private repository)
-3. ✅ Connects to server via SSH
-4. ✅ Pulls latest image and deploys containers
-5. ✅ Executes database migrations
-6. ✅ Runs health checks
+1. Builds Docker image
+2. Pushes to Docker Hub (private repository)
+3. Connects to server via SSH
+4. Pulls latest image and deploys containers
+5. Executes database migrations
+6. Runs health checks
 
-### Deployment Architecture
+### Deployment Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                       GitHub Actions                         │
-│  (Triggered by push to main branch)                          │
-└────────────┬────────────────────────────┬───────────────────┘
-             │                            │
-             ▼                            ▼
-    ┌────────────────┐          ┌────────────────┐
-    │  Build & Push  │          │  SSH Deploy    │
-    │  Docker Image  │──────────▶│  to Server     │
-    │  (Private Repo)│          │                │
-    └────────────────┘          └────────┬───────┘
-                                         │
-                    ┌────────────────────┼────────────────────┐
-                    ▼                    ▼                    ▼
-            ┌───────────────┐    ┌──────────────┐    ┌──────────────┐
-            │ DB Server      │    │ App Server   │    │ Docker Hub   │
-            │ MySQL + Redis  │    │ App + Nginx  │    │ (Private)    │
-            └───────────────┘    └──────────────┘    └──────────────┘
+GitHub Actions (Triggered by push to main branch)
+    |
+    +-- Build & Push Docker Image (Private Repo)
+    |
+    +-- SSH Deploy to Server
+            |
+            +-- DB Server (MySQL + Redis)
+            +-- App Server (App + Nginx)
+            +-- Docker Hub (Private)
 ```
 
 ### Prerequisites
@@ -662,11 +636,11 @@ Set up Secrets in your GitHub repository (Settings → Secrets and variables →
 
 #### Server SSH Configuration
 
-| Secret Name     | Description                | How to Obtain                                                |
-| --------------- | -------------------------- | ------------------------------------------------------------ |
-| `DB_SERVER_IP`  | Database server IP         | `123.456.789.100`                                            |
+| Secret Name     | Description                | How to Obtain                                                      |
+| --------------- | -------------------------- | ------------------------------------------------------------------ |
+| `DB_SERVER_IP`  | Database server IP         | `123.456.789.100`                                                  |
 | `DB_SSH_KEY`    | Database server SSH key    | Complete private key content (including `-----BEGIN ... KEY-----`) |
-| `APP_SERVER_IP` | Application server IP      | `123.456.789.101`                                            |
+| `APP_SERVER_IP` | Application server IP      | `123.456.789.101`                                                  |
 | `APP_SSH_KEY`   | Application server SSH key | Complete private key content (including `-----BEGIN ... KEY-----`) |
 
 **Obtaining SSH Private Key**:
@@ -684,17 +658,17 @@ cat ~/.ssh/github_actions
 
 #### Database Configuration
 
-| Secret Name       | Description                | Example                        |
-| ----------------- | -------------------------- | ------------------------------ |
-| `MYSQL_ROOT_PASS` | MySQL root password        | Strong password (min 16 chars) |
-| `MYSQL_APP_USER`  | Application database user  | `app_user`                     |
+| Secret Name       | Description                   | Example                        |
+| ----------------- | ----------------------------- | ------------------------------ |
+| `MYSQL_ROOT_PASS` | MySQL root password           | Strong password (min 16 chars) |
+| `MYSQL_APP_USER`  | Application database user     | `app_user`                     |
 | `MYSQL_APP_PASS`  | Application database password | Strong password (min 16 chars) |
-| `REDIS_PASS`      | Redis password             | Strong password (min 16 chars) |
+| `REDIS_PASS`      | Redis password                | Strong password (min 16 chars) |
 
 #### Application Environment Configuration
 
-| Secret Name           | Description                                                                |
-| --------------------- | -------------------------------------------------------------------------- |
+| Secret Name           | Description                                                                     |
+| --------------------- | ------------------------------------------------------------------------------- |
 | `ENV_PRODUCTION_FILE` | Complete production environment config (**Pure KEY=VALUE format, no comments**) |
 
 **`ENV_PRODUCTION_FILE` Configuration Example**:
@@ -822,69 +796,73 @@ git push origin main
 
 After pushing, GitHub Actions will automatically execute the following steps:
 
-#### Stage 1: Database Server Deployment (Deploy DB Server)
+#### Stage 1: Database Server Deployment
 
-```
-1️⃣ Upload setup-mysql-redis.sh to database server
-2️⃣ Execute script via SSH:
+1. Upload setup-mysql-redis.sh to database server
+2. Execute script via SSH:
    - Install/update MySQL 8.0
    - Install/update Redis 7.0
    - Create blog database (CHARACTER SET utf8mb4)
    - Create application database user and grant permissions
    - Configure remote access permissions
    - Set up firewall rules
-3️⃣ Verify database and Redis connections
-```
+3. Verify database and Redis connections
 
-#### Stage 2: Application Server Deployment (Deploy App Server)
+#### Stage 2: Application Server Deployment
 
-```
-1️⃣ Code checkout and validation
+1. Code checkout and validation
+
    - Verify required files exist
    - Check database migration files
 
-2️⃣ Build Docker image
+2. Build Docker image
+
    - Build using Docker Buildx
    - Tags: latest, commit-sha, timestamp
    - Push to Docker Hub private repository
 
-3️⃣ Prepare deployment files
+3. Prepare deployment files
+
    - Generate .env.production
    - Upload configuration files to server:
-     * docker-compose.yml
-     * nginx.conf
-     * alembic migration files
-     * Initialization data scripts
+     - docker-compose.yml
+     - nginx.conf
+     - alembic migration files
+     - Initialization data scripts
 
-4️⃣ Server environment preparation
+4. Server environment preparation
+
    - Install Docker (if needed)
    - Configure SSL certificates (Let's Encrypt)
    - Backup current configuration (keep last 5 copies)
    - Create deployment directory structure
 
-5️⃣ Pull and start containers
+5. Pull and start containers
+
    - Login to Docker Hub
    - Pull latest image
    - Stop and clean up old containers
    - Start new containers (app + nginx)
    - Wait for container health checks to pass
 
-6️⃣ Database migration
+6. Database migration
+
    - Check migration status
    - Automatically execute alembic upgrade head
    - Verify migration success
 
-7️⃣ Initialize data
+7. Initialize data
+
    - Run initial_data.py
    - Create default data (if needed)
 
-8️⃣ Health check
+8. Health check
+
    - Verify API accessibility
    - Check container status
    - Display resource usage
 
-9️⃣ Deployment completion notification
-```
+9. Deployment completion notification
 
 ### Monitoring Deployment Status
 
@@ -898,11 +876,11 @@ After pushing, GitHub Actions will automatically execute the following steps:
 
 #### Deployment Status Indicators
 
-| Icon | Status      | Description       |
-| ---- | ----------- | ----------------- |
-| 🟡   | In Progress | Deploying         |
-| ✅   | Success     | Deployment successful |
-| ❌   | Failed      | Deployment failed |
+| Status      | Description           |
+| ----------- | --------------------- |
+| In Progress | Deploying             |
+| Success     | Deployment successful |
+| Failed      | Deployment failed     |
 
 ### Operations Management
 
@@ -966,13 +944,13 @@ sudo docker-compose up -d
 
 Confirm the following before deployment:
 
-**GitHub Configuration**
+GitHub Configuration:
 
 - [ ] All GitHub Secrets are correctly configured
 - [ ] Docker Hub Access Token is valid
 - [ ] SSH private key format is correct (includes BEGIN/END markers)
 
-**Server Preparation**
+Server Preparation:
 
 - [ ] Server has Ubuntu 20.04+ or Debian 11+ installed
 - [ ] SSH public key has been added to server's `~/.ssh/authorized_keys`
@@ -981,20 +959,20 @@ Confirm the following before deployment:
   - Application server: 80 (HTTP), 443 (HTTPS)
 - [ ] Application server has SSL certificates configured (Let's Encrypt or other)
 
-**Environment Configuration**
+Environment Configuration:
 
 - [ ] `ENV_PRODUCTION_FILE` contains all required variables
 - [ ] Database connection information is correct (IP, port, username, password)
 - [ ] Redis connection information is correct
 - [ ] Third-party service keys are configured (AWS, Stripe, OAuth, etc.)
 
-**Domain and SSL**
+Domain and SSL:
 
 - [ ] Domain DNS correctly points to application server IP
 - [ ] SSL certificates are configured (Let's Encrypt recommended)
 - [ ] Domain in Nginx configuration is correct
 
-**First Deployment Special Checks**
+First Deployment Special Checks:
 
 - [ ] Docker Hub private repository has been created
 - [ ] Database server is accessible from application server
@@ -1004,7 +982,7 @@ Confirm the following before deployment:
 
 #### GitHub Actions Deployment Failed
 
-**Issue 1: SSH Connection Failed**
+Issue 1: SSH Connection Failed
 
 ```bash
 # Symptom: Permission denied (publickey)
@@ -1017,7 +995,7 @@ ssh-copy-id -i ~/.ssh/github_actions.pub ubuntu@<SERVER_IP>
 ssh -i ~/.ssh/github_actions ubuntu@<SERVER_IP>
 ```
 
-**Issue 2: Docker Hub Push Failed**
+Issue 2: Docker Hub Push Failed
 
 ```bash
 # Symptom: unauthorized: authentication required
@@ -1027,7 +1005,7 @@ ssh -i ~/.ssh/github_actions ubuntu@<SERVER_IP>
 # 3. Check if repository exists (create in Docker Hub)
 ```
 
-**Issue 3: File Upload Failed**
+Issue 3: File Upload Failed
 
 ```bash
 # Symptom: No space left on device
@@ -1037,7 +1015,7 @@ docker system prune -a --volumes
 rm -rf /opt/backups/server-* # Delete old backups
 ```
 
-**Issue 4: Database Migration Failed**
+Issue 4: Database Migration Failed
 
 ```bash
 # Symptom: Can't locate revision
@@ -1054,7 +1032,7 @@ sudo docker-compose exec app alembic history
 
 #### Application Runtime Issues
 
-**Issue 1: Container Startup Failed**
+Issue 1: Container Startup Failed
 
 ```bash
 # View detailed logs
@@ -1071,7 +1049,7 @@ sudo docker-compose config
 sudo docker-compose restart app
 ```
 
-**Issue 2: Database Connection Failed**
+Issue 2: Database Connection Failed
 
 ```bash
 # Test database connection from application server
@@ -1087,7 +1065,7 @@ sudo cat /etc/mysql/mysql.conf.d/mysqld.cnf | grep bind-address
 # Should be: bind-address = 0.0.0.0
 ```
 
-**Issue 3: Redis Connection Failed**
+Issue 3: Redis Connection Failed
 
 ```bash
 # Test Redis connection
@@ -1098,7 +1076,7 @@ redis-cli -h <DB_SERVER_IP> -p 6379 -a <REDIS_PASS> ping
 sudo cat /etc/redis/redis.conf | grep -E "bind|requirepass"
 ```
 
-**Issue 4: Environment Variables Not Taking Effect**
+Issue 4: Environment Variables Not Taking Effect
 
 ```bash
 # Check if environment variables are loaded correctly
@@ -1111,7 +1089,7 @@ sudo docker-compose exec app env | grep -E "DATABASE|REDIS|JWT"
 
 #### Performance Issues
 
-**Issue 1: Out of Memory**
+Issue 1: Out of Memory
 
 ```bash
 # View memory usage
@@ -1130,7 +1108,7 @@ sudo mkswap /swapfile
 sudo swapon /swapfile
 ```
 
-**Issue 2: Slow Response**
+Issue 2: Slow Response
 
 ```bash
 # Check database query performance
@@ -1156,7 +1134,7 @@ MYSQL_MAX_OVERFLOW=10
 REDIS_MAX_CONNECTIONS=20
 ```
 
-## 💻 Development Guide
+## Development Guide
 
 ### Code Style
 
@@ -1235,7 +1213,7 @@ async def create_example(data: ExampleCreate):
     pass
 ```
 
-## 🧪 Testing
+## Testing
 
 ### Running Tests
 
@@ -1274,9 +1252,9 @@ async def test_create_blog():
 
 ### 1. Database Connection Failed
 
-**Issue**: `Can't connect to MySQL server`
+Issue: `Can't connect to MySQL server`
 
-**Solutions**:
+Solutions:
 
 - Check if MySQL service is running
 - Verify database configuration (host, port, username, password)
