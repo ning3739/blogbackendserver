@@ -41,6 +41,9 @@ exclude = [
 ]
 fix = true
 
+[tool.ruff.lint]
+ignore = ["E712"]  # SQLAlchemy requires == True/False syntax in .where() clauses
+
 [tool.ty.rules]
 invalid-argument-type = "ignore"
 unresolved-attribute = "ignore"

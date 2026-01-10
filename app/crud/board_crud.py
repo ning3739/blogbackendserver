@@ -206,8 +206,8 @@ class BoardCrud:
             .options(selectinload(Board_Comment.user).selectinload(User.avatar))
             .where(
                 Board_Comment.board_id == board_id,
-                not Board_Comment.is_deleted,
-                Board_Comment.parent_id is None,  # 只获取父评论
+                Board_Comment.is_deleted == False,
+                Board_Comment.parent_id.is_(None),  # 只获取父评论
             )
         )
 
@@ -253,7 +253,7 @@ class BoardCrud:
                 .options(selectinload(Board_Comment.user).selectinload(User.avatar))
                 .where(
                     Board_Comment.board_id == board_id,
-                    not Board_Comment.is_deleted,
+                    Board_Comment.is_deleted == False,
                     Board_Comment.parent_id.in_(parent_ids),
                 )
             )
@@ -270,7 +270,7 @@ class BoardCrud:
                     .options(selectinload(Board_Comment.user).selectinload(User.avatar))
                     .where(
                         Board_Comment.board_id == board_id,
-                        not Board_Comment.is_deleted,
+                        Board_Comment.is_deleted == False,
                         Board_Comment.parent_id.in_(children_ids),
                     )
                 )

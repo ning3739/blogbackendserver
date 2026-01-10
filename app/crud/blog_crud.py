@@ -95,7 +95,7 @@ class BlogCrud:
         """获取博客评论，可选择是否包含已删除的评论"""
         statement = select(Blog_Comment).where(Blog_Comment.id == comment_id)
         if not include_deleted:
-            statement = statement.where(not Blog_Comment.is_deleted)
+            statement = statement.where(Blog_Comment.is_deleted == False)
         result = await self.db.execute(statement)
         return result.scalar_one_or_none()
 
@@ -1074,8 +1074,8 @@ class BlogCrud:
             .options(selectinload(Blog_Comment.user).selectinload(User.avatar))
             .where(
                 Blog_Comment.blog_id == blog_id,
-                not Blog_Comment.is_deleted,
-                Blog_Comment.parent_id is None,
+                Blog_Comment.is_deleted == False,
+                Blog_Comment.parent_id.is_(None),
             )
         )
 
@@ -1124,7 +1124,7 @@ class BlogCrud:
             .options(selectinload(Blog_Comment.user).selectinload(User.avatar))
             .where(
                 Blog_Comment.blog_id == blog_id,
-                not Blog_Comment.is_deleted,
+                Blog_Comment.is_deleted == False,
                 Blog_Comment.parent_id.in_(parent_ids),
             )
         )
@@ -1141,7 +1141,7 @@ class BlogCrud:
                 .options(selectinload(Blog_Comment.user).selectinload(User.avatar))
                 .where(
                     Blog_Comment.blog_id == blog_id,
-                    not Blog_Comment.is_deleted,
+                    Blog_Comment.is_deleted == False,
                     Blog_Comment.parent_id.in_(children_ids),
                 )
             )

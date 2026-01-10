@@ -576,7 +576,7 @@ class AnalyticCrud:
         # 活跃用户数（is_active 为 True 且未删除的用户）
         active_users = await self.db.execute(
             select(func.count(User.id)).where(
-                User.is_active, not User.is_deleted
+                User.is_active == True, User.is_deleted == False
             )
         )
         active_users = active_users.scalar_one()
