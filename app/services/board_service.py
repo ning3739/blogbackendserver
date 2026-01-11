@@ -2,17 +2,13 @@ from fastapi import Depends
 from typing import Dict, Any, Optional
 from app.crud.board_crud import BoardCrud, get_board_crud
 from app.models.user_model import RoleType
-from app.core.i18n.i18n import Language
 
 
 class BoardService:
     def __init__(self, board_crud: BoardCrud):
         self.board_crud = board_crud
 
-    async def get_board_details(
-        self,
-        language: str,
-    ) -> Dict[str, Any]:
+    async def get_board_details(self) -> Dict[str, Any]:
         return await self.board_crud.get_board_details()
 
     async def update_board(
