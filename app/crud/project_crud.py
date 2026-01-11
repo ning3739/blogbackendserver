@@ -173,7 +173,7 @@ class ProjectCrud:
             {
                 "project_id": project.id,
                 "project_slug": project.slug,
-                "cover_url": project.cover.thumbnail_filepath_url
+                "cover_url": project.cover.watermark_filepath_url
                 if project.cover
                 else None,
                 "created_at": project.created_at.isoformat(),
@@ -511,7 +511,7 @@ class ProjectCrud:
                 "section_id": project.section_id,  # 添加section_id用于编辑
                 "seo_id": project.seo_id,  # 添加seo_id用于编辑
                 "cover_id": project.cover_id,  # 添加cover_id用于编辑
-                "cover_url": project.cover.thumbnail_filepath_url
+                "cover_url": project.cover.watermark_filepath_url
                 if project.cover
                 else None,
                 "chinese_title": project.chinese_title,  # 添加原始中文标题
@@ -531,7 +531,7 @@ class ProjectCrud:
             response = {
                 "project_id": project.id,
                 "project_slug": project.slug,
-                "cover_url": project.cover.thumbnail_filepath_url
+                "cover_url": project.cover.watermark_filepath_url
                 if project.cover
                 else None,
                 "project_name": project.chinese_title.capitalize()
