@@ -173,7 +173,7 @@ class ProjectCrud:
             {
                 "project_id": project.id,
                 "project_slug": project.slug,
-                "cover_url": project.cover.watermark_filepath_url
+                "cover_url": project.cover.thumbnail_filepath_url
                 if project.cover
                 else None,
                 "created_at": project.created_at.isoformat(),
