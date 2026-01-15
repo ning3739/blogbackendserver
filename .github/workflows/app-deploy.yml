@@ -164,35 +164,115 @@ jobs:
             CURRENT_VERSION=$(sudo docker exec server /server/.venv/bin/alembic current 2>&1 | grep -oP '(?<=\(head\) )[a-f0-9]+' || echo "none")
             echo "📌 Current version: $CURRENT_VERSION"
             
-            # If no version, ensure alembic is at base state
+            # If no version, check if database has tables
             if [ "$CURRENT_VERSION" = "none" ]; then
-              echo "⚠️  No version found, ensuring clean state..."
-              sudo docker exec server /server/.venv/bin/alembic stamp base || true
+              echo "⚠️  No version found, checking database state..."
+              
+              # Check if database has any tables (excluding alembic_version)
+              TABLE_COUNT=$(sudo docker exec server /server/.venv/bin/python -c "
+from sqlalchemy import create_engine, text
+from app.core.config.settings import settings
+import sys
+
+url = settings.database.DATABASE_URL
+if url.startswith('mysql+aiomysql://'):
+    url = url.replace('mysql+aiomysql://', 'mysql+pymysql://')
+elif url.startswith('mysql://'):
+    url = url.replace('mysql://', 'mysql+pymysql://')
+
+try:
+    engine = create_engine(url)
+    with engine.connect() as conn:
+        result = conn.execute(text(\"SHOW TABLES\"))
+        tables = [row[0] for row in result.fetchall() if row[0] != 'alembic_version']
+        print(len(tables))
+except Exception as e:
+    print('0')
+    sys.exit(0)
+" 2>/dev/null || echo "0")
+              
+              echo "📊 Found $TABLE_COUNT table(s) in database (excluding alembic_version)"
+              
+              if [ "$TABLE_COUNT" -gt 0 ]; then
+                echo "⚠️  Database has tables but no version - marking as synced..."
+                # Database has tables, generate migration to sync state
+                if sudo docker exec server /server/.venv/bin/alembic revision --autogenerate -m "Sync existing schema $(date +%Y%m%d_%H%M%S)" 2>/dev/null; then
+                  # Mark as head without running migration
+                  sudo docker exec server /server/.venv/bin/alembic stamp head
+                  echo "✅ Database marked as synced"
+                  exit 0
+                else
+                  echo "⚠️  Could not sync, will try fresh migration..."
+                fi
+              else
+                echo "✅ Fresh database, ready for initial migration"
+              fi
             fi
             
-            # Generate migration
-            echo "📝 Generating migration from current models..."
-            sudo docker exec server /server/.venv/bin/alembic revision --autogenerate -m "Migration $(date +%Y%m%d_%H%M%S)"
+            # Generate migration to detect changes (dry run)
+            echo "📝 Checking for schema changes..."
+            if ! sudo docker exec server /server/.venv/bin/alembic revision --autogenerate -m "Auto migration $(date +%Y%m%d_%H%M%S)"; then
+              echo "❌ Failed to generate migration"
+              echo "📋 Checking alembic logs..."
+              sudo docker logs --tail=100 server
+              exit 1
+            fi
             
-            # Find and display the generated migration file
+            # Find the generated migration file
             MIGRATION_FILE=$(sudo docker exec server find /server/alembic/versions -name "*.py" ! -name "__init__.py" -type f | head -1)
-            echo "📄 Generated migration file: $MIGRATION_FILE"
             
-            if [ -n "$MIGRATION_FILE" ]; then
-              echo "📋 Migration file content preview:"
-              sudo docker exec server head -50 "$MIGRATION_FILE"
-              
-              # Apply migration
-              echo "🚀 Applying migration..."
-              sudo docker exec server /server/.venv/bin/alembic upgrade head
-              
-              # Verify migration
-              echo "✅ Migration completed. New status:"
-              sudo docker exec server /server/.venv/bin/alembic current
-            else
+            if [ -z "$MIGRATION_FILE" ]; then
               echo "❌ No migration file generated!"
               exit 1
             fi
+            
+            echo "📄 Generated migration file: $MIGRATION_FILE"
+            
+            # Check if migration has actual changes (not just empty upgrade/downgrade)
+            echo "🔍 Analyzing migration content..."
+            MIGRATION_CONTENT=$(sudo docker exec server cat "$MIGRATION_FILE")
+            
+            # Count actual operations (op.create_table, op.add_column, etc.)
+            HAS_CHANGES=$(echo "$MIGRATION_CONTENT" | grep -E "^\s+(op\.(create_table|drop_table|add_column|drop_column|alter_column|create_index|drop_index))" | wc -l)
+            
+            echo "📊 Detected $HAS_CHANGES schema operation(s)"
+            
+            if [ "$HAS_CHANGES" -gt 0 ]; then
+              # Has actual schema changes - apply migration
+              echo "⚠️  Schema changes detected, applying migration..."
+              echo "📋 Migration preview (first 50 lines):"
+              sudo docker exec server head -50 "$MIGRATION_FILE"
+              
+              echo "🚀 Applying migration..."
+              if ! sudo docker exec server /server/.venv/bin/alembic upgrade head; then
+                echo "❌ Failed to apply migration"
+                echo "📋 Checking alembic logs..."
+                sudo docker logs --tail=100 server
+                exit 1
+              fi
+              
+              echo "✅ Migration applied successfully"
+            else
+              # No changes - just sync version
+              echo "✅ No schema changes detected"
+              
+              if [ "$CURRENT_VERSION" = "none" ]; then
+                # Fresh database but migration is empty - this shouldn't happen
+                echo "⚠️  Fresh database but no tables to create - this is unexpected!"
+                echo "📋 Migration content:"
+                sudo docker exec server cat "$MIGRATION_FILE"
+                exit 1
+              else
+                # Database already up to date - mark as current version
+                echo "📌 Database schema is already up to date"
+                echo "🔄 Updating version marker to latest migration..."
+                sudo docker exec server /server/.venv/bin/alembic stamp head
+              fi
+            fi
+            
+            # Verify final status
+            echo "✅ Migration completed. Final status:"
+            sudo docker exec server /server/.venv/bin/alembic current
 
       - name: Insert initial data
         uses: appleboy/ssh-action@v0.1.8
