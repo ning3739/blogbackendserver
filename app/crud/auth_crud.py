@@ -173,6 +173,42 @@ class AuthCrud:
         await self.db.commit()
         return new_token
 
+    async def _enforce_concurrent_session_limit(
+        self, 
+        user_id: int, 
+        exclude_token_id: Optional[int] = None
+    ) -> None:
+        """强制执行并发会话限制
+        
+        确保用户最多只有 MAX_CONCURRENT_SESSIONS 个活跃设备。
+        如果超过限制，自动撤销最旧的 token。
+        
+        Args:
+            user_id: 用户 ID
+            exclude_token_id: 要排除的 token ID（比如正在撤销的旧 token）
+        """
+        # 查询用户所有有效的 refresh token
+        valid_tokens = await self._get_user_tokens(user_id)
+        
+        # 排除指定的 token（比如正在 rotation 的旧 token）
+        if exclude_token_id:
+            valid_tokens = [t for t in valid_tokens if t.id != exclude_token_id]
+        
+        # 并发登录限制：最多 5 个活跃设备
+        MAX_CONCURRENT_SESSIONS = 5
+        
+        if len(valid_tokens) >= MAX_CONCURRENT_SESSIONS:
+            # 撤销最旧的 token
+            oldest_token = min(valid_tokens, key=lambda t: t.created_at)
+            oldest_token.is_active = False
+            self.db.add(oldest_token)
+            await self.db.flush()
+            
+            self.logger.info(
+                f"User {user_id} exceeded max concurrent sessions ({MAX_CONCURRENT_SESSIONS}), "
+                f"revoked oldest token (jti: {oldest_token.jit})"
+            )
+
     async def _generate_tokens_by_condition(
         self, user_id: int, email: str, role: RoleType, username: str
     ) -> Dict[str, str]:
@@ -182,24 +218,8 @@ class AuthCrud:
         - Access token 不存储在数据库中，仅 refresh token 存储
         - 实现并发登录限制：最多允许 5 个活跃设备
         """
-        # 查询现有的 refresh token
-        valid_tokens = await self._get_user_tokens(user_id)
-
-        # 并发登录限制：最多 5 个活跃设备
-        MAX_CONCURRENT_SESSIONS = 5
-
-        if len(valid_tokens) >= MAX_CONCURRENT_SESSIONS:
-            # 撤销最旧的 token
-            oldest_token = min(valid_tokens, key=lambda t: t.created_at)
-            oldest_token.is_active = False
-            self.db.add(oldest_token)
-            await self.db.flush()
-            self.logger.info(
-                f"User {email} exceeded max concurrent sessions ({MAX_CONCURRENT_SESSIONS}), "
-                f"revoked oldest token (jti: {oldest_token.jit})"
-            )
-            # 从列表中移除已撤销的 token
-            valid_tokens = [t for t in valid_tokens if t.id != oldest_token.id]
+        # 强制执行并发会话限制（登录时）
+        await self._enforce_concurrent_session_limit(user_id)
 
         # 总是生成新的 token 对（不复用旧 token）
         self.logger.info(f"Generating new token pair for user {email}")
@@ -571,34 +591,8 @@ class AuthCrud:
             access_token = tokens.get("access_token")
             refresh_token = tokens.get("refresh_token")
 
-            # 异步后台任务：发送欢迎邮件 → 更新客户端信息（顺序执行，非阻塞）
-            try:
-                if (
-                    not user.ip_address
-                    or not user.city
-                    or not user.latitude
-                    or not user.longitude
-                ):
-                    # 先发欢迎邮件（延迟10秒），完成后再更新客户端信息
-                    task_flow = chain(
-                        greeting_email_task.s(
-                            user.email, get_current_language().value
-                        ).set(countdown=10),
-                        # 使用 si 确保不接收上一个任务的返回值
-                        client_info_task.si(user.id, dict(request.headers)),
-                    )
-                    task_flow.apply_async()
-                    self.logger.info(
-                        f"Chained tasks: greeting → client info for {user.email}"
-                    )
-                else:
-                    # 无需欢迎邮件，直接更新客户端信息（保持10秒延迟以与先前逻辑一致）
-                    headers_dict = dict(request.headers)
-                    client_info_task.apply_async(
-                        args=[user.id, headers_dict], countdown=10
-                    )
-            except Exception as e:
-                self.logger.warning(f"启动任务失败: {e}")
+            # 调度后台任务
+            self._schedule_user_tasks(user, dict(request.headers))
 
             # 7. 返回响应
             return {"access_token": access_token, "refresh_token": refresh_token}
@@ -665,87 +659,207 @@ class AuthCrud:
         - 每次刷新时生成新的 access token 和 refresh token
         - 旧的 refresh token 立即失效
         - 如果检测到旧 token 被重复使用，说明可能被盗用
+        
+        Args:
+            user_id: 用户 ID
+            email: 用户邮箱
+            jit: 当前 refresh token 的 JWT ID
+            
+        Returns:
+            包含 access_token 和 refresh_token 的字典
+            
+        Raises:
+            HTTPException: 用户无效、token 不存在或其他错误
         """
-        # 检查是否有真实的用户
+        # 步骤 1: 验证用户（早期返回模式）
         user = await self.get_user_by_id(user_id)
-
-        if user and user.is_active and user.is_verified and not user.is_deleted:
-            # 检查用户email是否匹配
-            if user.email != email:
-                raise HTTPException(
-                    status_code=401,
-                    detail=get_message(key="common.insufficientPermissions"),
-                )
-
-            # 检查是否有有效的refresh token
-            statement = (
-                select(RefreshToken)
-                .options(lazyload("*"))
-                .where(
-                    RefreshToken.user_id == user_id,
-                    RefreshToken.jit == jit,
-                    RefreshToken.is_active == True,
-                    RefreshToken.expired_at > func.utc_timestamp(),
-                )
-            )
-            result = await self.db.execute(statement)
-            old_refresh_token = result.scalar_one_or_none()
-
-            if not old_refresh_token:
-                raise HTTPException(
-                    status_code=404,
-                    detail=get_message(
-                        key="auth.generateAccessToken.refreshTokenNotFound",
-                    ),
-                )
-
-            # 生成新的 token 对
-            access_jti = str(uuid.uuid4())
-            refresh_jti = str(uuid.uuid4())
-
-            shared_payload = {
-                "user_id": user.id,
-                "email": user.email,
-                "username": user.username,
-                "role": user.role,
-            }
-
-            access_token_data = {**shared_payload, "jti": access_jti}
-            refresh_token_data = {**shared_payload, "jti": refresh_jti}
-
-            # 生成新的 access token（不存数据库）
-            access_token, _ = security_manager.create_access_token(access_token_data)
-
-            # 生成新的 refresh token（存数据库）
-            refresh_token, refresh_token_expired_at = (
-                security_manager.create_refresh_token(refresh_token_data)
-            )
-
-            # 撤销旧的 refresh token（Token Rotation）
-            old_refresh_token.is_active = False
-            self.db.add(old_refresh_token)
-
-            # 保存新的 refresh token
-            await self._save_token_to_database(
-                user_id=user.id,
-                jit=refresh_jti,
-                token=refresh_token,
-                expired_at=refresh_token_expired_at,
-            )
-
-            self.logger.info(
-                f"Token rotation completed for user: {user.email} (old jti: {jit}, new jti: {refresh_jti})"
-            )
-
-            return {
-                "access_token": access_token,
-                "refresh_token": refresh_token,
-            }
-        else:
+        if not user or not user.is_active or not user.is_verified or user.is_deleted:
             raise HTTPException(
                 status_code=401,
                 detail=get_message(key="common.insufficientPermissions"),
             )
+
+        # 步骤 2: 验证 email 匹配
+        if user.email != email:
+            raise HTTPException(
+                status_code=401,
+                detail=get_message(key="common.insufficientPermissions"),
+            )
+
+        # 步骤 3: 查询并验证 refresh token
+        old_refresh_token = await self._get_valid_refresh_token(user_id, jit)
+        if not old_refresh_token:
+            raise HTTPException(
+                status_code=404,
+                detail=get_message(
+                    key="auth.generateAccessToken.refreshTokenNotFound",
+                ),
+            )
+
+        # 步骤 4: 生成新的 token 对
+        tokens = self._create_new_token_pair(user)
+
+        # 步骤 5: 撤销旧 token 并保存新 token（Token Rotation）
+        await self._rotate_refresh_token(old_refresh_token, tokens, jit)
+
+        return {
+            "access_token": tokens["access_token"],
+            "refresh_token": tokens["refresh_token"],
+        }
+
+    async def _get_valid_refresh_token(
+        self, user_id: int, jit: str
+    ) -> Optional[RefreshToken]:
+        """获取有效的 refresh token
+        
+        Args:
+            user_id: 用户 ID
+            jit: JWT ID
+            
+        Returns:
+            有效的 RefreshToken 对象，如果不存在则返回 None
+        """
+        statement = (
+            select(RefreshToken)
+            .options(lazyload("*"))
+            .where(
+                RefreshToken.user_id == user_id,
+                RefreshToken.jit == jit,
+                RefreshToken.is_active == True,
+                RefreshToken.expired_at > func.utc_timestamp(),
+            )
+        )
+        result = await self.db.execute(statement)
+        return result.scalar_one_or_none()
+
+    def _create_new_token_pair(self, user) -> Dict[str, str]:
+        """生成新的 token 对
+        
+        Args:
+            user: User 对象
+            
+        Returns:
+            包含 token 信息的字典
+        """
+        # 生成新的 JWT ID
+        access_jti = str(uuid.uuid4())
+        refresh_jti = str(uuid.uuid4())
+
+        # 准备共享的 payload
+        shared_payload = {
+            "user_id": user.id,
+            "email": user.email,
+            "username": user.username,
+            "role": user.role,
+        }
+
+        # 生成 access token（不存数据库）
+        access_token, _ = security_manager.create_access_token(
+            {**shared_payload, "jti": access_jti}
+        )
+
+        # 生成 refresh token（存数据库）
+        refresh_token, refresh_token_expired_at = (
+            security_manager.create_refresh_token(
+                {**shared_payload, "jti": refresh_jti}
+            )
+        )
+
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "refresh_jti": refresh_jti,
+            "refresh_expired_at": refresh_token_expired_at,
+        }
+
+    async def _rotate_refresh_token(
+        self, 
+        old_token: RefreshToken, 
+        new_tokens: Dict[str, str],
+        old_jit: str
+    ) -> None:
+        """撤销旧 token 并保存新 token（Token Rotation）
+        
+        实现严格的并发会话限制：
+        - 撤销旧的 refresh token
+        - 检查并发登录限制（刷新时也检查）
+        - 保存新的 refresh token
+        
+        Args:
+            old_token: 旧的 RefreshToken 对象
+            new_tokens: 新的 token 信息字典
+            old_jit: 旧的 JWT ID（用于日志）
+        """
+        # 步骤 1: 撤销旧的 refresh token
+        old_token.is_active = False
+        self.db.add(old_token)
+        await self.db.flush()
+
+        # 步骤 2: 强制执行并发会话限制（刷新时也检查）
+        # 排除刚刚撤销的旧 token，避免重复计数
+        await self._enforce_concurrent_session_limit(
+            user_id=old_token.user_id,
+            exclude_token_id=old_token.id
+        )
+
+        # 步骤 3: 保存新的 refresh token
+        await self._save_token_to_database(
+            user_id=old_token.user_id,
+            jit=new_tokens["refresh_jti"],
+            token=new_tokens["refresh_token"],
+            expired_at=new_tokens["refresh_expired_at"],
+        )
+
+        await self.db.commit()
+
+        self.logger.info(
+            f"Token rotation completed for user_id: {old_token.user_id} "
+            f"(old jti: {old_jit}, new jti: {new_tokens['refresh_jti']})"
+        )
+
+    def _schedule_user_tasks(
+        self, 
+        user: User, 
+        request_headers: Dict
+    ) -> None:
+        """调度用户相关的后台任务
+        
+        在以下情况调用：
+        - 用户登录（account_login）
+        - 社交账号登录（social_account_login）
+        
+        Args:
+            user: User 对象
+            request_headers: 请求头字典
+        """
+        try:
+            if (
+                not user.ip_address
+                or not user.city
+                or not user.latitude
+                or not user.longitude
+            ):
+                # 先发欢迎邮件（延迟10秒），然后更新客户端信息
+                task_flow = chain(
+                    greeting_email_task.s(
+                        user.email, 
+                        get_current_language().value
+                    ).set(countdown=10),
+                    # 使用 si 确保不接收上一个任务的返回值
+                    client_info_task.si(user.id, request_headers),
+                )
+                task_flow.apply_async()
+                self.logger.info(
+                    f"Chained tasks: greeting → client info for {user.email}"
+                )
+            else:
+                # 无需欢迎邮件，直接更新客户端信息（保持10秒延迟以与先前逻辑一致）
+                client_info_task.apply_async(
+                    args=[user.id, request_headers], 
+                    countdown=10
+                )
+        except Exception as e:
+            self.logger.warning(f"启动后台任务失败: {e}")
 
     async def social_account_login(
         self,
@@ -784,33 +898,8 @@ class AuthCrud:
                 access_token = tokens.get("access_token")
                 refresh_token = tokens.get("refresh_token")
 
-                # 异步后台任务：更新客户端信息（非阻塞）
-                try:
-                    if (
-                        not user.ip_address
-                        or not user.city
-                        or not user.latitude
-                        or not user.longitude
-                    ):
-                        # 先发欢迎邮件（延迟10秒），完成后再更新客户端信息
-                        task_flow = chain(
-                            greeting_email_task.s(
-                                user.email, get_current_language().value
-                            ).set(countdown=10),
-                            # 使用 si 确保不接收上一个任务的返回值
-                            client_info_task.si(user.id, dict(request.headers)),
-                        )
-                        task_flow.apply_async()
-                        self.logger.info(
-                            f"Chained tasks: greeting → client info for {user.email}"
-                        )
-                    else:
-                        # 无需欢迎邮件，直接更新客户端信息（保持10秒延迟以与先前逻辑一致）
-                        client_info_task.apply_async(
-                            args=[user.id, dict(request.headers)], countdown=10
-                        )
-                except Exception as e:
-                    self.logger.warning(f"启动客户端信息更新任务失败: {e}")
+                # 调度后台任务
+                self._schedule_user_tasks(user, dict(request.headers))
 
                 return {"access_token": access_token, "refresh_token": refresh_token}
             elif existing_social_account and (
@@ -831,33 +920,8 @@ class AuthCrud:
                 access_token = tokens.get("access_token")
                 refresh_token = tokens.get("refresh_token")
 
-                # 异步后台任务：更新客户端信息（非阻塞）
-                try:
-                    if (
-                        not user.ip_address
-                        or not user.city
-                        or not user.latitude
-                        or not user.longitude
-                    ):
-                        # 先发欢迎邮件（延迟10秒），完成后再更新客户端信息
-                        task_flow = chain(
-                            greeting_email_task.s(
-                                user.email, get_current_language().value
-                            ).set(countdown=10),
-                            # 使用 si 确保不接收上一个任务的返回值
-                            client_info_task.si(user.id, dict(request.headers)),
-                        )
-                        task_flow.apply_async()
-                        self.logger.info(
-                            f"Chained tasks: greeting → client info for {user.email}"
-                        )
-                    else:
-                        # 无需欢迎邮件，直接更新客户端信息（保持10秒延迟以与先前逻辑一致）
-                        client_info_task.apply_async(
-                            args=[user.id, dict(request.headers)], countdown=10
-                        )
-                except Exception as e:
-                    self.logger.warning(f"启动客户端信息更新任务失败: {e}")
+                # 调度后台任务
+                self._schedule_user_tasks(user, dict(request.headers))
 
                 return {"access_token": access_token, "refresh_token": refresh_token}
 
@@ -906,33 +970,8 @@ class AuthCrud:
             f"Social account created for user: {email}, provider: {provider}, provider_user_id: {provider_user_id}"
         )
 
-        # 异步后台任务：更新客户端信息（非阻塞）
-        try:
-            if (
-                not user.ip_address
-                or not user.city
-                or not user.latitude
-                or not user.longitude
-            ):
-                # 先发欢迎邮件（延迟10秒），完成后再更新客户端信息
-                task_flow = chain(
-                    greeting_email_task.s(user.email, get_current_language().value).set(
-                        countdown=10
-                    ),
-                    # 使用 si 确保不接收上一个任务的返回值
-                    client_info_task.si(user.id, dict(request.headers)),
-                )
-                task_flow.apply_async()
-                self.logger.info(
-                    f"Chained tasks: greeting → client info for {user.email}"
-                )
-            else:
-                # 无需欢迎邮件，直接更新客户端信息（保持10秒延迟以与先前逻辑一致）
-                client_info_task.apply_async(
-                    args=[user.id, dict(request.headers)], countdown=10
-                )
-        except Exception as e:
-            self.logger.warning(f"启动客户端信息更新任务失败: {e}")
+        # 调度后台任务
+        self._schedule_user_tasks(user, dict(request.headers))
 
         # 清理user list缓存
         await redis_manager.delete_pattern_async("admin_all_users:page=*")

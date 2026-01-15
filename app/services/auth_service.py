@@ -44,6 +44,62 @@ class AuthService:
         username = "".join(random.choices("abcdefghijklmnopqrstuvwxyz0123456789", k=6))
         return username
 
+    def _clear_auth_cookies(self, response: Response) -> None:
+        """清理所有认证相关的 cookie
+        
+        在以下情况调用：
+        - Token 解码失败
+        - Token 数据不完整
+        - Token 刷新失败
+        """
+        response.delete_cookie(
+            "access_token",
+            domain=settings.domain.COOKIE_DOMAIN,
+            path="/",
+        )
+        response.delete_cookie(
+            "refresh_token",
+            domain=settings.domain.COOKIE_DOMAIN,
+            path="/",
+        )
+
+    def _set_auth_cookies(
+        self, 
+        response: Response, 
+        access_token: str, 
+        refresh_token: str
+    ) -> None:
+        """设置认证相关的 cookie
+        
+        Args:
+            response: FastAPI Response 对象
+            access_token: 新的 access token
+            refresh_token: 新的 refresh token
+        """
+        # 设置 access token cookie
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=True,
+            samesite="lax",
+            path="/",
+            domain=settings.domain.COOKIE_DOMAIN,
+            max_age=settings.jwt.JWT_ACCESS_TOKEN_EXPIRATION,
+        )
+        
+        # 设置 refresh token cookie
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            secure=True,
+            samesite="lax",
+            path="/",
+            domain=settings.domain.COOKIE_DOMAIN,
+            max_age=settings.jwt.JWT_REFRESH_TOKEN_EXPIRATION,
+        )
+
     async def _social_account_login(
         self,
         request,
@@ -233,12 +289,21 @@ class AuthService:
         self, request, response: Response
     ) -> Dict[str, str]:
         """Generate access token and rotate refresh token for user
-
+        
         实现 Token Rotation：返回新的 access token 和 refresh token
+        
+        Args:
+            request: FastAPI Request 对象
+            response: FastAPI Response 对象
+            
+        Returns:
+            包含 access_token 和 refresh_token 的字典
+            
+        Raises:
+            HTTPException: Token 无效、过期或刷新失败时
         """
-        # 获取refresh_token
+        # 步骤 1: 获取 refresh_token
         refresh_cookie_token = APIKeyCookie(name="refresh_token", auto_error=False)
-
         refresh_token = await refresh_cookie_token(request)
 
         if not refresh_token:
@@ -247,71 +312,46 @@ class AuthService:
                 detail=get_message("auth.generateAccessToken.refreshTokenNotFound"),
             )
 
-        # 解码refresh_token
+        # 步骤 2: 解码 refresh_token
         token_data = self.security_manager.decode_token(refresh_token)
         if not token_data:
+            self._clear_auth_cookies(response)
             raise HTTPException(
                 status_code=401,
                 detail=get_message("common.insufficientPermissions"),
             )
 
+        # 步骤 3: 验证 token 数据完整性
         user_id = token_data.get("user_id")
         email_id = token_data.get("email")
         jit = token_data.get("jti")
 
         if not user_id or not email_id or not jit:
+            self._clear_auth_cookies(response)
             raise HTTPException(
                 status_code=401,
                 detail=get_message("common.insufficientPermissions"),
             )
 
+        # 步骤 4: 生成新的 token 对（Token Rotation）
         try:
-            # 生成新的 token 对（Token Rotation）
             tokens = await self.auth_crud.generate_access_token(
                 user_id=user_id,
                 email=email_id,
                 jit=jit,
             )
-            new_access_token = tokens["access_token"]
-            new_refresh_token = tokens["refresh_token"]
-        except HTTPException as e:
-            # 如果是 refresh token 无效或过期，删除 cookie 让客户端重新登录
-            if e.status_code == 404:  # refresh token not found
-                response.delete_cookie(
-                    "refresh_token",
-                    domain=settings.domain.COOKIE_DOMAIN,
-                    path="/",
-                )
+        except HTTPException:
+            self._clear_auth_cookies(response)
             raise
 
-        # 设置新的 access token cookie
-        response.set_cookie(
-            key="access_token",
-            value=new_access_token,
-            httponly=True,
-            secure=True,
-            samesite="lax",
-            path="/",
-            domain=settings.domain.COOKIE_DOMAIN,
-            max_age=settings.jwt.JWT_ACCESS_TOKEN_EXPIRATION,
+        # 步骤 5: 设置新的 cookie
+        self._set_auth_cookies(
+            response,
+            tokens["access_token"],
+            tokens["refresh_token"],
         )
 
-        # 设置新的 refresh token cookie（Token Rotation）
-        response.set_cookie(
-            key="refresh_token",
-            value=new_refresh_token,
-            httponly=True,
-            secure=True,
-            samesite="lax",
-            path="/",
-            domain=settings.domain.COOKIE_DOMAIN,
-            max_age=settings.jwt.JWT_REFRESH_TOKEN_EXPIRATION,
-        )
-
-        return {
-            "access_token": new_access_token,
-            "refresh_token": new_refresh_token,
-        }
+        return tokens
 
     async def check_auth_token(self, request) -> Dict[str, Union[str, bool]]:
         """Check access token."""
