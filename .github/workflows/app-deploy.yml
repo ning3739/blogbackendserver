@@ -156,36 +156,36 @@ jobs:
               sleep 2
             done
 
+            # Show current alembic status
+            echo "📊 Current alembic status:"
+            sudo docker exec server /server/.venv/bin/alembic current || true
+            
             # Check current database version
             CURRENT_VERSION=$(sudo docker exec server /server/.venv/bin/alembic current 2>&1 | grep -oP '(?<=\(head\) )[a-f0-9]+' || echo "none")
+            echo "📌 Current version: $CURRENT_VERSION"
             
-            if [ "$CURRENT_VERSION" = "none" ]; then
-              # Fresh database - generate and apply initial migration
-              echo "📝 Fresh database detected, generating initial migration..."
-              sudo docker exec server /server/.venv/bin/alembic revision --autogenerate -m "Initial migration"
+            # Generate migration
+            echo "📝 Generating migration from current models..."
+            sudo docker exec server /server/.venv/bin/alembic revision --autogenerate -m "Migration $(date +%Y%m%d_%H%M%S)"
+            
+            # Find and display the generated migration file
+            MIGRATION_FILE=$(sudo docker exec server find /server/alembic/versions -name "*.py" ! -name "__init__.py" -type f | head -1)
+            echo "📄 Generated migration file: $MIGRATION_FILE"
+            
+            if [ -n "$MIGRATION_FILE" ]; then
+              echo "📋 Migration file content preview:"
+              sudo docker exec server head -50 "$MIGRATION_FILE"
+              
+              # Apply migration
+              echo "🚀 Applying migration..."
               sudo docker exec server /server/.venv/bin/alembic upgrade head
-              echo "✅ Initial migration completed"
+              
+              # Verify migration
+              echo "✅ Migration completed. New status:"
+              sudo docker exec server /server/.venv/bin/alembic current
             else
-              # Existing database - check for schema changes
-              echo "📝 Database at version $CURRENT_VERSION, checking for schema changes..."
-              
-              # Generate migration to detect changes
-              sudo docker exec server /server/.venv/bin/alembic revision --autogenerate -m "Update schema $(date +%Y%m%d_%H%M%S)"
-              
-              # Check if migration has actual changes
-              MIGRATION_FILE=$(sudo docker exec server find /server/alembic/versions -name "*.py" ! -name "__init__.py" -type f | head -1)
-              HAS_CHANGES=$(sudo docker exec server grep -E "def upgrade|op\." "$MIGRATION_FILE" | grep -v "pass" | wc -l)
-              
-              if [ "$HAS_CHANGES" -gt 2 ]; then
-                # Has actual schema changes - apply migration
-                echo "⚠️  Schema changes detected, applying migration..."
-                sudo docker exec server /server/.venv/bin/alembic upgrade head
-                echo "✅ Migration applied successfully"
-              else
-                # No changes - just update version
-                echo "✅ No schema changes detected, updating version only..."
-                sudo docker exec server /server/.venv/bin/alembic stamp head
-              fi
+              echo "❌ No migration file generated!"
+              exit 1
             fi
 
       - name: Insert initial data
