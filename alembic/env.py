@@ -32,7 +32,20 @@ if config.config_file_name is not None:
 # add your model's MetaData object here
 # for 'autogenerate' support
 
-# 导入所有模型以确保它们被注册
+# 导入所有模型以确保它们被注册到 SQLModel.metadata
+from app.models.user_model import User  # noqa: F401
+from app.models.media_model import Media  # noqa: F401
+from app.models.seo_model import Seo  # noqa: F401
+from app.models.tag_model import Tag  # noqa: F401
+from app.models.payment_model import Tax, PaymentRecord  # noqa: F401
+from app.models.section_model import Section  # noqa: F401
+from app.models.board_model import Board, BoardComment  # noqa: F401
+from app.models.friend_model import Friend, FriendList  # noqa: F401
+from app.models.subscriber_model import Subscriber  # noqa: F401
+from app.models.blog_model import Blog, BlogTag, BlogComment, BlogStats, BlogStatus, BlogSummary, BlogTTS, SavedBlog  # noqa: F401
+from app.models.project_model import Project, ProjectAttachment, ProjectMonetization  # noqa: F401
+from app.models.auth_model import RefreshToken, Code, Social_Account  # noqa: F401
+
 target_metadata = SQLModel.metadata
 
 # other values from the config, defined by the needs of env.py,
