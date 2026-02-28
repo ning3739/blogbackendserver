@@ -31,7 +31,7 @@ class RefreshToken(SQLModel, table=True):
         # 单列索引
         Index("idx_refresh_tokens_user_id", "user_id"),
         Index("idx_refresh_tokens_is_active", "is_active"),
-        Index("idx_refresh_tokens_jit", "jit"),
+        Index("idx_refresh_tokens_jti", "jti"),
         Index("idx_refresh_tokens_expired_at", "expired_at"),
         # 复合索引 - 用于高效查询
         Index(
@@ -43,7 +43,7 @@ class RefreshToken(SQLModel, table=True):
         Index(
             "idx_refresh_tokens_generate_access_token",
             "user_id",
-            "jit",
+            "jti",
             "is_active",
             "expired_at",
         ),  # auth_crud.py: generate_access_token
@@ -56,7 +56,7 @@ class RefreshToken(SQLModel, table=True):
     user_id: int = Field(
         sa_column=Column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     )
-    jit: str = Field(nullable=False, max_length=64, unique=True)
+    jti: str = Field(nullable=False, max_length=64, unique=True)
     token: str = Field(nullable=False, max_length=1024)
     is_active: bool = Field(default=True, nullable=True)
     created_at: datetime = Field(

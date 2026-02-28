@@ -162,12 +162,12 @@ class AuthCrud:
         return (result.rowcount or 0) > 0
 
     async def _save_token_to_database(
-        self, user_id: int, jit: str, token: str, expired_at: datetime
+        self, user_id: int, jti: str, token: str, expired_at: datetime
     ) -> RefreshToken:
         """Create a new refresh token."""
         new_token = await self.db.execute(
             insert(RefreshToken).values(
-                user_id=user_id, jit=jit, token=token, expired_at=expired_at
+                user_id=user_id, jti=jti, token=token, expired_at=expired_at
             )
         )
         await self.db.commit()
@@ -206,7 +206,7 @@ class AuthCrud:
             
             self.logger.info(
                 f"User {user_id} exceeded max concurrent sessions ({MAX_CONCURRENT_SESSIONS}), "
-                f"revoked oldest token (jti: {oldest_token.jit})"
+                f"revoked oldest token (jti: {oldest_token.jti})"
             )
 
     async def _generate_tokens_by_condition(
@@ -248,7 +248,7 @@ class AuthCrud:
         # 只保存 refresh token 到数据库
         await self._save_token_to_database(
             user_id=user_id,
-            jit=refresh_jti,
+            jti=refresh_jti,
             token=refresh_token,
             expired_at=refresh_token_expired_at,
         )
@@ -651,7 +651,7 @@ class AuthCrud:
             return False
 
     async def generate_access_token(
-        self, user_id: int, email: str, jit: str
+        self, user_id: int, email: str, jti: str
     ) -> Dict[str, str]:
         """Generate new access token and rotate refresh token for enhanced security
 
@@ -663,7 +663,7 @@ class AuthCrud:
         Args:
             user_id: 用户 ID
             email: 用户邮箱
-            jit: 当前 refresh token 的 JWT ID
+            jti: 当前 refresh token 的 JWT ID
             
         Returns:
             包含 access_token 和 refresh_token 的字典
@@ -687,7 +687,7 @@ class AuthCrud:
             )
 
         # 步骤 3: 查询并验证 refresh token
-        old_refresh_token = await self._get_valid_refresh_token(user_id, jit)
+        old_refresh_token = await self._get_valid_refresh_token(user_id, jti)
         if not old_refresh_token:
             raise HTTPException(
                 status_code=404,
@@ -700,7 +700,7 @@ class AuthCrud:
         tokens = self._create_new_token_pair(user)
 
         # 步骤 5: 撤销旧 token 并保存新 token（Token Rotation）
-        await self._rotate_refresh_token(old_refresh_token, tokens, jit)
+        await self._rotate_refresh_token(old_refresh_token, tokens, jti)
 
         return {
             "access_token": tokens["access_token"],
@@ -708,13 +708,13 @@ class AuthCrud:
         }
 
     async def _get_valid_refresh_token(
-        self, user_id: int, jit: str
+        self, user_id: int, jti: str
     ) -> Optional[RefreshToken]:
         """获取有效的 refresh token
         
         Args:
             user_id: 用户 ID
-            jit: JWT ID
+            jti: JWT ID
             
         Returns:
             有效的 RefreshToken 对象，如果不存在则返回 None
@@ -724,7 +724,7 @@ class AuthCrud:
             .options(lazyload("*"))
             .where(
                 RefreshToken.user_id == user_id,
-                RefreshToken.jit == jit,
+                RefreshToken.jti == jti,
                 RefreshToken.is_active == True,
                 RefreshToken.expired_at > func.utc_timestamp(),
             )
@@ -776,7 +776,7 @@ class AuthCrud:
         self, 
         old_token: RefreshToken, 
         new_tokens: Dict[str, str],
-        old_jit: str
+        old_jti: str
     ) -> None:
         """撤销旧 token 并保存新 token（Token Rotation）
         
@@ -788,7 +788,7 @@ class AuthCrud:
         Args:
             old_token: 旧的 RefreshToken 对象
             new_tokens: 新的 token 信息字典
-            old_jit: 旧的 JWT ID（用于日志）
+            old_jti: 旧的 JWT ID（用于日志）
         """
         # 步骤 1: 撤销旧的 refresh token
         old_token.is_active = False
@@ -805,7 +805,7 @@ class AuthCrud:
         # 步骤 3: 保存新的 refresh token
         await self._save_token_to_database(
             user_id=old_token.user_id,
-            jit=new_tokens["refresh_jti"],
+            jti=new_tokens["refresh_jti"],
             token=new_tokens["refresh_token"],
             expired_at=new_tokens["refresh_expired_at"],
         )
@@ -814,7 +814,7 @@ class AuthCrud:
 
         self.logger.info(
             f"Token rotation completed for user_id: {old_token.user_id} "
-            f"(old jti: {old_jit}, new jti: {new_tokens['refresh_jti']})"
+            f"(old jti: {old_jti}, new jti: {new_tokens['refresh_jti']})"
         )
 
     def _schedule_user_tasks(

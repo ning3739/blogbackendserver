@@ -326,9 +326,9 @@ class AuthService:
         # 步骤 3: 验证 token 数据完整性
         user_id = token_data.get("user_id")
         email_id = token_data.get("email")
-        jit = token_data.get("jti")
+        jti = token_data.get("jti")
 
-        if not user_id or not email_id or not jit:
+        if not user_id or not email_id or not jti:
             self._clear_auth_cookies(response)
             raise HTTPException(
                 status_code=401,
@@ -340,7 +340,7 @@ class AuthService:
             tokens = await self.auth_crud.generate_access_token(
                 user_id=user_id,
                 email=email_id,
-                jit=jit,
+                jti=jti,
             )
         except HTTPException:
             self._clear_auth_cookies(response)
